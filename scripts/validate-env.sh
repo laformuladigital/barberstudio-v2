@@ -26,6 +26,11 @@ if ! grep -q "^VITE_APP_DOMAIN=https://barberappstudio.com$" "$ENV_FILE"; then
   missing=1
 fi
 
+if grep -q "your-project-ref\|your-public-anon-key" "$ENV_FILE"; then
+  echo "Replace placeholder Supabase values before deploy."
+  missing=1
+fi
+
 if [[ "$missing" -ne 0 ]]; then
   exit 1
 fi
