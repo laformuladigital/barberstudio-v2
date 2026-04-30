@@ -1,26 +1,40 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, RefreshCw, X } from "lucide-react";
+import { Check, RefreshCw, UserCog, X } from "lucide-react";
 import {
   approveScheduleBlock,
   cancelAppointment,
+  linkBarber,
   listAppointments,
   listBarbers,
+  listProfiles,
   listScheduleBlocks,
   listServices,
+  listUserRoles,
+  removeUserRole,
   rejectScheduleBlock,
+  setUserRole,
   type AppointmentRow,
+  type ProfileRow,
   type ScheduleBlockRow,
+  type UserRoleRow,
 } from "../../lib/bookingApi";
 import { formatTime, money, todayISO } from "../../lib/formatters";
 import { supabase } from "../../lib/supabase";
-import type { Barber, Service } from "../../lib/types";
+import type { AppRole, Barber, Service } from "../../lib/types";
 
 export default function AdminPage() {
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [profiles, setProfiles] = useState<ProfileRow[]>([]);
+  const [roles, setRoles] = useState<UserRoleRow[]>([]);
   const [localDate, setLocalDate] = useState(todayISO());
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedRole, setSelectedRole] = useState<AppRole>("barbero");
+  const [barberName, setBarberName] = useState("");
+  const [barberBio, setBarberBio] = useState("");
+  const [barberSpecialties, setBarberSpecialties] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const revenue = useMemo(
@@ -31,16 +45,21 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [nextAppointments, nextBlocks, nextServices, nextBarbers] = await Promise.all([
+      const [nextAppointments, nextBlocks, nextServices, nextBarbers, nextProfiles, nextRoles] = await Promise.all([
         listAppointments("admin", localDate),
         listScheduleBlocks(),
         listServices(),
         listBarbers(),
+        listProfiles(),
+        listUserRoles(),
       ]);
       setAppointments(nextAppointments);
       setBlocks(nextBlocks);
       setServices(nextServices);
       setBarbers(nextBarbers);
+      setProfiles(nextProfiles);
+      setRoles(nextRoles);
+      setSelectedUserId((current) => current || nextProfiles[0]?.id || "");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "No pudimos cargar el panel admin.");
     }
@@ -69,6 +88,31 @@ export default function AdminPage() {
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "No pudimos completar la accion.");
     }
+  }
+
+  const rolesByUser = useMemo(() => {
+    return roles.reduce<Record<string, AppRole[]>>((acc, role) => {
+      acc[role.user_id] = [...(acc[role.user_id] ?? []), role.role];
+      return acc;
+    }, {});
+  }, [roles]);
+
+  async function handleAssignRole(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await run(() => setUserRole(selectedUserId, selectedRole));
+  }
+
+  async function handleLinkBarber(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const specialties = barberSpecialties
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    await run(() => linkBarber({ userId: selectedUserId, displayName: barberName, bio: barberBio, specialties }));
+    setBarberName("");
+    setBarberBio("");
+    setBarberSpecialties("");
   }
 
   return (
@@ -118,6 +162,50 @@ export default function AdminPage() {
         </div>
 
         <div className="space-y-5">
+          <section className="overflow-hidden rounded-2xl border border-white/10">
+            <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.04] px-4 py-3 font-medium">
+              <UserCog className="h-4 w-4 text-gold" /> Accesos
+            </div>
+            <div className="space-y-4 p-4">
+              <form className="space-y-3" onSubmit={(event) => void handleAssignRole(event)}>
+                <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)} required>
+                  {profiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.full_name || profile.email || profile.id}
+                    </option>
+                  ))}
+                </select>
+                <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" value={selectedRole} onChange={(event) => setSelectedRole(event.target.value as AppRole)}>
+                  <option value="cliente">Cliente</option>
+                  <option value="barbero">Barbero</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <button className="w-full rounded-xl bg-gold px-4 py-3 font-medium text-ink" type="submit">Asignar rol</button>
+              </form>
+
+              <form className="space-y-3 border-t border-white/10 pt-4" onSubmit={(event) => void handleLinkBarber(event)}>
+                <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre publico del barbero" value={barberName} onChange={(event) => setBarberName(event.target.value)} required />
+                <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Especialidades separadas por coma" value={barberSpecialties} onChange={(event) => setBarberSpecialties(event.target.value)} />
+                <textarea className="min-h-20 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Bio corta" value={barberBio} onChange={(event) => setBarberBio(event.target.value)} />
+                <button className="w-full rounded-xl bg-white/5 px-4 py-3 font-medium hover:bg-white/10" type="submit">Vincular como barbero</button>
+              </form>
+
+              <div className="space-y-2 border-t border-white/10 pt-4">
+                {profiles.slice(0, 8).map((profile) => (
+                  <div className="rounded-xl bg-white/[0.03] p-3 text-sm" key={profile.id}>
+                    <p className="font-medium">{profile.full_name || profile.email || "Usuario"}</p>
+                    <p className="mt-1 text-xs text-smoke/55">{(rolesByUser[profile.id] ?? ["sin rol"]).join(", ")}</p>
+                    {(rolesByUser[profile.id] ?? []).map((role) => (
+                      <button className="mt-2 mr-2 rounded-lg bg-white/5 px-2 py-1 text-xs hover:bg-white/10" key={role} onClick={() => void run(() => removeUserRole(profile.id, role))} type="button">
+                        Quitar {role}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
           <section className="overflow-hidden rounded-2xl border border-white/10">
             <div className="border-b border-white/10 bg-white/[0.04] px-4 py-3 font-medium">Bloqueos</div>
             {blocks.map((block) => (

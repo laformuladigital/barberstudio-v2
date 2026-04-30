@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import type { AppointmentStatus, Barber, BlockStatus, Service } from "./types";
+import type { AppRole } from "./types";
 
 export type Slot = {
   slot_time: string;
@@ -33,6 +34,19 @@ export type ScheduleBlockRow = {
   reason: string | null;
   status: BlockStatus;
   barbers?: Pick<Barber, "display_name"> | null;
+};
+
+export type ProfileRow = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  phone: string | null;
+  created_at: string;
+};
+
+export type UserRoleRow = {
+  user_id: string;
+  role: AppRole;
 };
 
 function raise(error: { message: string } | null) {
@@ -166,5 +180,43 @@ export async function approveScheduleBlock(id: string) {
 
 export async function rejectScheduleBlock(id: string, reason?: string) {
   const { error } = await supabase.rpc("reject_schedule_block", { p_block_id: id, p_reason: reason ?? null });
+  raise(error);
+}
+
+export async function listProfiles() {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id,email,full_name,phone,created_at")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  raise(error);
+  return (data ?? []) as ProfileRow[];
+}
+
+export async function listUserRoles() {
+  const { data, error } = await supabase.from("user_roles").select("user_id,role").limit(500);
+
+  raise(error);
+  return (data ?? []) as UserRoleRow[];
+}
+
+export async function setUserRole(userId: string, role: AppRole) {
+  const { error } = await supabase.rpc("admin_set_user_role", { p_user_id: userId, p_role: role });
+  raise(error);
+}
+
+export async function removeUserRole(userId: string, role: AppRole) {
+  const { error } = await supabase.rpc("admin_remove_user_role", { p_user_id: userId, p_role: role });
+  raise(error);
+}
+
+export async function linkBarber(input: { userId: string; displayName: string; bio?: string; specialties: string[] }) {
+  const { error } = await supabase.rpc("admin_link_barber", {
+    p_user_id: input.userId,
+    p_display_name: input.displayName,
+    p_bio: input.bio ?? null,
+    p_specialties: input.specialties,
+  });
   raise(error);
 }

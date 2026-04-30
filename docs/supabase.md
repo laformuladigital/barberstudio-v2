@@ -24,6 +24,7 @@
 - La proteccion anti-cruce se sostiene con restricciones de exclusion GiST sobre `appointments` y `schedule_blocks`.
 - Realtime se habilita para `appointments` y `schedule_blocks`; la UI lo usa para refrescar datos, no para decidir permisos.
 - `automation_events` actua como outbox para n8n. No participa en la creacion de reservas.
+- La gestion de accesos usa RPC admin: `admin_set_user_role`, `admin_remove_user_role` y `admin_link_barber`.
 
 ## Modelo
 
