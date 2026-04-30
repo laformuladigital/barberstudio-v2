@@ -1,0 +1,17 @@
+[Unit]
+Description=BarberStudio n8n automation service
+After=network.target
+
+[Service]
+Type=simple
+User=n8n
+Group=n8n
+EnvironmentFile=/etc/barberstudio/n8n.env
+ExecStart=/usr/bin/n8n
+Restart=always
+RestartSec=10
+WorkingDirectory=/var/lib/n8n
+
+[Install]
+WantedBy=multi-user.target
+
