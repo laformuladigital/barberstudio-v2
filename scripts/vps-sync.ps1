@@ -22,8 +22,7 @@ finally {
 }
 
 ssh "$User@$HostName" "mkdir -p '$RemoteDir'"
-scp $archive "$User@$HostName:/tmp/barberstudio-v2-vps.tar.gz"
+scp $archive "${User}@${HostName}:/tmp/barberstudio-v2-vps.tar.gz"
 ssh "$User@$HostName" "tar -xzf /tmp/barberstudio-v2-vps.tar.gz -C '$RemoteDir' && rm /tmp/barberstudio-v2-vps.tar.gz && chmod +x '$RemoteDir/scripts/'*.sh"
 
-Write-Host "Synced to $User@$HostName:$RemoteDir"
-
+Write-Host "Synced to ${User}@${HostName}:$RemoteDir"
