@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AdminPage from "../../features/admin/AdminPage";
 import LoginPage from "../../features/auth/LoginPage";
+import ResetPasswordPage from "../../features/auth/ResetPasswordPage";
 import BarberPage from "../../features/barber/BarberPage";
 import BookingPage from "../../features/booking/BookingPage";
 import ClientPage from "../../features/client/ClientPage";
@@ -13,6 +14,7 @@ export function AppRouter() {
       <Route path="/" element={<HomePage />} />
       <Route path="/reservar" element={<BookingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         path="/cliente"
         element={
@@ -41,4 +43,3 @@ export function AppRouter() {
     </Routes>
   );
 }
-

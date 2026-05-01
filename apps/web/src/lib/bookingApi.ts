@@ -85,6 +85,16 @@ export async function listBarbers() {
   return (data ?? []) as Barber[];
 }
 
+export async function listAdminBarbers() {
+  const { data, error } = await supabase
+    .from("barbers")
+    .select("id,user_id,display_name,bio,specialties,rating,is_active")
+    .order("display_name", { ascending: true });
+
+  raise(error);
+  return (data ?? []) as Barber[];
+}
+
 export async function getAvailableSlots(barberId: string, serviceId: string, localDate: string) {
   const { data, error } = await supabase.rpc("get_available_slots", {
     p_barber_id: barberId,
