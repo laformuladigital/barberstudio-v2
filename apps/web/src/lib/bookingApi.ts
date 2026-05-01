@@ -67,7 +67,7 @@ export async function listServices() {
 export async function listBarbers() {
   const { data, error } = await supabase
     .from("barbers")
-    .select("id,user_id,display_name,bio,specialties,rating,is_active")
+    .select("id,display_name,bio,specialties,rating,is_active")
     .eq("is_active", true)
     .order("display_name", { ascending: true });
 

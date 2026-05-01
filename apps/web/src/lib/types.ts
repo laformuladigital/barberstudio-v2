@@ -18,7 +18,7 @@ export type Service = {
 export type Barber = {
   id: string;
   location_id?: string | null;
-  user_id: string | null;
+  user_id?: string | null;
   display_name: string;
   bio: string | null;
   specialties: string[];
