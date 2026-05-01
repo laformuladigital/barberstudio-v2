@@ -5,14 +5,16 @@ import {
   cancelAppointment,
   linkBarber,
   listAppointments,
+  listAdminServices,
   listBarbers,
   listProfiles,
   listScheduleBlocks,
-  listServices,
   listUserRoles,
   removeUserRole,
   rejectScheduleBlock,
   setUserRole,
+  upsertBarber,
+  upsertService,
   type AppointmentRow,
   type ProfileRow,
   type ScheduleBlockRow,
@@ -35,6 +37,19 @@ export default function AdminPage() {
   const [barberName, setBarberName] = useState("");
   const [barberBio, setBarberBio] = useState("");
   const [barberSpecialties, setBarberSpecialties] = useState("");
+  const [catalogServiceId, setCatalogServiceId] = useState("");
+  const [serviceName, setServiceName] = useState("");
+  const [serviceDescription, setServiceDescription] = useState("");
+  const [serviceDuration, setServiceDuration] = useState(45);
+  const [serviceBuffer, setServiceBuffer] = useState(10);
+  const [servicePrice, setServicePrice] = useState(45000);
+  const [serviceActive, setServiceActive] = useState(true);
+  const [serviceOrder, setServiceOrder] = useState(1);
+  const [catalogBarberId, setCatalogBarberId] = useState("");
+  const [catalogBarberName, setCatalogBarberName] = useState("");
+  const [catalogBarberBio, setCatalogBarberBio] = useState("");
+  const [catalogBarberSpecialties, setCatalogBarberSpecialties] = useState("");
+  const [catalogBarberActive, setCatalogBarberActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const revenue = useMemo(
@@ -48,7 +63,7 @@ export default function AdminPage() {
       const [nextAppointments, nextBlocks, nextServices, nextBarbers, nextProfiles, nextRoles] = await Promise.all([
         listAppointments("admin", localDate),
         listScheduleBlocks(),
-        listServices(),
+        listAdminServices(),
         listBarbers(),
         listProfiles(),
         listUserRoles(),
@@ -115,6 +130,82 @@ export default function AdminPage() {
     setBarberSpecialties("");
   }
 
+  function loadServiceForEdit(serviceId: string) {
+    setCatalogServiceId(serviceId);
+    const service = services.find((item) => item.id === serviceId);
+    if (!service) return;
+    setServiceName(service.name);
+    setServiceDescription(service.description ?? "");
+    setServiceDuration(service.duration_min);
+    setServiceBuffer(service.buffer_min);
+    setServicePrice(Math.round(service.price_cents / 100));
+    setServiceActive(service.active);
+    setServiceOrder(service.order_index);
+  }
+
+  function resetServiceForm() {
+    setCatalogServiceId("");
+    setServiceName("");
+    setServiceDescription("");
+    setServiceDuration(45);
+    setServiceBuffer(10);
+    setServicePrice(45000);
+    setServiceActive(true);
+    setServiceOrder(services.length + 1);
+  }
+
+  async function handleSaveService(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await run(() =>
+      upsertService({
+        serviceId: catalogServiceId || null,
+        name: serviceName,
+        description: serviceDescription,
+        durationMin: serviceDuration,
+        bufferMin: serviceBuffer,
+        priceCents: Math.max(0, Math.round(servicePrice * 100)),
+        active: serviceActive,
+        orderIndex: serviceOrder,
+      }),
+    );
+    resetServiceForm();
+  }
+
+  function loadBarberForEdit(barberId: string) {
+    setCatalogBarberId(barberId);
+    const barber = barbers.find((item) => item.id === barberId);
+    if (!barber) return;
+    setCatalogBarberName(barber.display_name);
+    setCatalogBarberBio(barber.bio ?? "");
+    setCatalogBarberSpecialties(barber.specialties.join(", "));
+    setCatalogBarberActive(barber.is_active);
+  }
+
+  function resetBarberForm() {
+    setCatalogBarberId("");
+    setCatalogBarberName("");
+    setCatalogBarberBio("");
+    setCatalogBarberSpecialties("");
+    setCatalogBarberActive(true);
+  }
+
+  async function handleSaveBarber(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await run(() =>
+      upsertBarber({
+        barberId: catalogBarberId || null,
+        displayName: catalogBarberName,
+        bio: catalogBarberBio,
+        specialties: catalogBarberSpecialties
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean),
+        active: catalogBarberActive,
+      }),
+    );
+    resetBarberForm();
+  }
+
   return (
     <main className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -162,6 +253,69 @@ export default function AdminPage() {
         </div>
 
         <div className="space-y-5">
+          <section className="overflow-hidden rounded-2xl border border-white/10">
+            <div className="border-b border-white/10 bg-white/[0.04] px-4 py-3 font-medium">Servicios</div>
+            <div className="space-y-4 p-4">
+              <div className="grid gap-2">
+                {services.map((service) => (
+                  <button className="rounded-xl bg-white/[0.03] p-3 text-left text-sm hover:bg-white/[0.07]" key={service.id} onClick={() => loadServiceForEdit(service.id)} type="button">
+                    <span className="block font-medium">{service.name}</span>
+                    <span className="text-xs text-smoke/55">
+                      {money(service.price_cents)} · {service.duration_min}+{service.buffer_min} min · {service.active ? "activo" : "inactivo"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <form className="space-y-3 border-t border-white/10 pt-4" onSubmit={(event) => void handleSaveService(event)}>
+                <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre del servicio" value={serviceName} onChange={(event) => setServiceName(event.target.value)} required />
+                <textarea className="min-h-16 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Descripcion" value={serviceDescription} onChange={(event) => setServiceDescription(event.target.value)} />
+                <div className="grid grid-cols-2 gap-3">
+                  <input className="rounded-xl border border-white/10 bg-ink px-3 py-3" min={15} max={360} type="number" value={serviceDuration} onChange={(event) => setServiceDuration(Number(event.target.value))} />
+                  <input className="rounded-xl border border-white/10 bg-ink px-3 py-3" min={0} max={120} type="number" value={serviceBuffer} onChange={(event) => setServiceBuffer(Number(event.target.value))} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input className="rounded-xl border border-white/10 bg-ink px-3 py-3" min={0} type="number" value={servicePrice} onChange={(event) => setServicePrice(Number(event.target.value))} />
+                  <input className="rounded-xl border border-white/10 bg-ink px-3 py-3" min={0} type="number" value={serviceOrder} onChange={(event) => setServiceOrder(Number(event.target.value))} />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-smoke/70">
+                  <input checked={serviceActive} onChange={(event) => setServiceActive(event.target.checked)} type="checkbox" />
+                  Servicio activo
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button className="rounded-xl bg-gold px-4 py-3 font-medium text-ink" type="submit">{catalogServiceId ? "Actualizar" : "Crear"} servicio</button>
+                  <button className="rounded-xl bg-white/5 px-4 py-3 font-medium hover:bg-white/10" onClick={resetServiceForm} type="button">Nuevo</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-2xl border border-white/10">
+            <div className="border-b border-white/10 bg-white/[0.04] px-4 py-3 font-medium">Barberos</div>
+            <div className="space-y-4 p-4">
+              <div className="grid gap-2">
+                {barbers.map((barber) => (
+                  <button className="rounded-xl bg-white/[0.03] p-3 text-left text-sm hover:bg-white/[0.07]" key={barber.id} onClick={() => loadBarberForEdit(barber.id)} type="button">
+                    <span className="block font-medium">{barber.display_name}</span>
+                    <span className="text-xs text-smoke/55">{barber.specialties.join(", ") || "Sin especialidades"} · {barber.is_active ? "activo" : "inactivo"}</span>
+                  </button>
+                ))}
+              </div>
+              <form className="space-y-3 border-t border-white/10 pt-4" onSubmit={(event) => void handleSaveBarber(event)}>
+                <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre publico" value={catalogBarberName} onChange={(event) => setCatalogBarberName(event.target.value)} required />
+                <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Especialidades separadas por coma" value={catalogBarberSpecialties} onChange={(event) => setCatalogBarberSpecialties(event.target.value)} />
+                <textarea className="min-h-16 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Bio" value={catalogBarberBio} onChange={(event) => setCatalogBarberBio(event.target.value)} />
+                <label className="flex items-center gap-2 text-sm text-smoke/70">
+                  <input checked={catalogBarberActive} onChange={(event) => setCatalogBarberActive(event.target.checked)} type="checkbox" />
+                  Barbero activo
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button className="rounded-xl bg-gold px-4 py-3 font-medium text-ink" type="submit">{catalogBarberId ? "Actualizar" : "Crear"} barbero</button>
+                  <button className="rounded-xl bg-white/5 px-4 py-3 font-medium hover:bg-white/10" onClick={resetBarberForm} type="button">Nuevo</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
           <section className="overflow-hidden rounded-2xl border border-white/10">
             <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.04] px-4 py-3 font-medium">
               <UserCog className="h-4 w-4 text-gold" /> Accesos

@@ -64,6 +64,16 @@ export async function listServices() {
   return (data ?? []) as Service[];
 }
 
+export async function listAdminServices() {
+  const { data, error } = await supabase
+    .from("services")
+    .select("id,name,description,duration_min,buffer_min,price_cents,active,order_index")
+    .order("order_index", { ascending: true });
+
+  raise(error);
+  return (data ?? []) as Service[];
+}
+
 export async function listBarbers() {
   const { data, error } = await supabase
     .from("barbers")
@@ -217,6 +227,46 @@ export async function linkBarber(input: { userId: string; displayName: string; b
     p_display_name: input.displayName,
     p_bio: input.bio ?? null,
     p_specialties: input.specialties,
+  });
+  raise(error);
+}
+
+export async function upsertService(input: {
+  serviceId?: string | null;
+  name: string;
+  description?: string | null;
+  durationMin: number;
+  bufferMin: number;
+  priceCents: number;
+  active: boolean;
+  orderIndex: number;
+}) {
+  const { error } = await supabase.rpc("admin_upsert_service", {
+    p_service_id: input.serviceId ?? null,
+    p_name: input.name,
+    p_description: input.description ?? null,
+    p_duration_min: input.durationMin,
+    p_buffer_min: input.bufferMin,
+    p_price_cents: input.priceCents,
+    p_active: input.active,
+    p_order_index: input.orderIndex,
+  });
+  raise(error);
+}
+
+export async function upsertBarber(input: {
+  barberId?: string | null;
+  displayName: string;
+  bio?: string | null;
+  specialties: string[];
+  active: boolean;
+}) {
+  const { error } = await supabase.rpc("admin_upsert_barber", {
+    p_barber_id: input.barberId ?? null,
+    p_display_name: input.displayName,
+    p_bio: input.bio ?? null,
+    p_specialties: input.specialties,
+    p_is_active: input.active,
   });
   raise(error);
 }

@@ -30,11 +30,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const { data: roleData } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", nextUser.id)
-          .limit(1)
-          .maybeSingle();
+          .eq("user_id", nextUser.id);
 
-        nextRole = (roleData?.role as AppRole | undefined) ?? null;
+        const roles = (roleData ?? []).map((item) => item.role as AppRole);
+
+        if (roles.includes("admin")) {
+          nextRole = "admin";
+        } else if (roles.includes("barbero")) {
+          nextRole = "barbero";
+        } else if (roles.includes("cliente")) {
+          nextRole = "cliente";
+        }
       }
 
       return nextRole;
