@@ -29,7 +29,7 @@ export default function HomePage() {
         <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/85 to-transparent" />
 
         <div className="relative z-10 flex min-h-[calc(100vh-9.5rem)] flex-col items-center justify-between px-6 py-8 text-center md:items-start md:px-14 md:py-12 md:text-left lg:px-20">
-          <img className="h-auto w-36 object-contain opacity-95 md:w-44" src="/logo-barberstudio-blanco.png" alt="BarberStudio" />
+          <img className="h-auto w-44 object-contain opacity-95 md:w-56" src="/logo-barberstudio-blanco.png" alt="BarberStudio" />
 
           <div className="mx-auto flex w-full max-w-3xl flex-col items-center md:mx-0 md:items-start">
             <p className="text-xs uppercase tracking-[0.42em] text-white/64 md:text-sm">Precision. Style. Presence.</p>

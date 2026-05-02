@@ -35,8 +35,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-4 md:py-6">
         <header className="glass-panel mb-8 flex flex-wrap items-center justify-between gap-4 rounded-[2rem] px-5 py-4 md:px-7">
           <Link to="/" className="flex items-center gap-3">
-            <span className="relative z-10 grid h-12 w-12 place-items-center rounded-full border border-white/30 bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_0_26px_rgba(255,255,255,0.10)]">
-              <Scissors className="h-5 w-5 text-silver" />
+            <span className="relative z-10 grid h-12 w-12 place-items-center overflow-hidden rounded-full border border-white/30 bg-black shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_0_26px_rgba(255,255,255,0.10)]">
+              <img className="h-10 w-10 object-contain" src="/logo-barberstudio-blanco.png" alt="" />
             </span>
             <div className="relative z-10">
               <p className="font-display text-2xl font-semibold leading-none silver-text">Barber Studio</p>
