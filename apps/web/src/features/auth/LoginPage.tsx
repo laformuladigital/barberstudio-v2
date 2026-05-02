@@ -85,39 +85,51 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-      <p className="text-sm uppercase tracking-[0.3em] text-gold">Acceso</p>
-      <h1 className="mt-3 text-4xl font-semibold">{mode === "login" ? "Entrar al panel" : mode === "register" ? "Crear cuenta cliente" : "Restablecer contraseña"}</h1>
-      <p className="mt-3 text-sm leading-7 text-smoke/70">
-        Supabase Auth controla la sesion. Los permisos reales salen de `user_roles` y RLS.
-      </p>
+    <main className="mx-auto max-w-3xl">
+      <section className="glass-panel rounded-[2rem] p-6 md:p-10">
+        <div className="relative z-10 mx-auto mb-9 flex max-w-sm flex-col items-center text-center">
+          <div className="grid h-24 w-24 place-items-center rounded-full border border-white/20 bg-white/[0.045] shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_0_45px_rgba(255,255,255,0.12)]">
+            <span className="font-display text-6xl font-semibold silver-text">S</span>
+          </div>
+          <p className="mt-4 font-display text-3xl font-semibold leading-none silver-text">BARBERSTUDIO</p>
+        </div>
 
-      <div className="mt-6 grid grid-cols-3 rounded-xl border border-white/10 bg-ink p-1 text-sm">
-        <button className={`rounded-lg px-3 py-2 ${mode === "login" ? "bg-gold text-ink" : "text-smoke/70"}`} type="button" onClick={() => setMode("login")}>
+        <div className="relative z-10">
+          <p className="text-xs uppercase tracking-[0.42em] text-silver/70">Acceso</p>
+          <h1 className="mt-4 font-display text-5xl font-semibold leading-tight md:text-6xl">
+            {mode === "login" ? "Entrar al panel" : mode === "register" ? "Crear cuenta" : "Restablecer contraseña"}
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-smoke/62">
+            Inicio seguro con Supabase Auth. Los permisos reales se validan con roles y politicas RLS.
+          </p>
+        </div>
+
+      <div className="relative z-10 mt-8 grid grid-cols-3 rounded-2xl border border-white/14 bg-black/30 p-1 text-sm">
+        <button className={`rounded-xl px-3 py-3 transition ${mode === "login" ? "glass-button border-white/45 text-white" : "text-smoke/62 hover:text-white"}`} type="button" onClick={() => setMode("login")}>
           Entrar
         </button>
-        <button className={`rounded-lg px-3 py-2 ${mode === "register" ? "bg-gold text-ink" : "text-smoke/70"}`} type="button" onClick={() => setMode("register")}>
+        <button className={`rounded-xl px-3 py-3 transition ${mode === "register" ? "glass-button border-white/45 text-white" : "text-smoke/62 hover:text-white"}`} type="button" onClick={() => setMode("register")}>
           Registro
         </button>
-        <button className={`rounded-lg px-3 py-2 ${mode === "reset" ? "bg-gold text-ink" : "text-smoke/70"}`} type="button" onClick={() => setMode("reset")}>
+        <button className={`rounded-xl px-3 py-3 transition ${mode === "reset" ? "glass-button border-white/45 text-white" : "text-smoke/62 hover:text-white"}`} type="button" onClick={() => setMode("reset")}>
           Recuperar
         </button>
       </div>
 
-      <form className="mt-6 space-y-4" onSubmit={(event) => void handleSubmit(event)}>
+      <form className="relative z-10 mt-8 space-y-5" onSubmit={(event) => void handleSubmit(event)}>
         {mode === "register" ? (
-          <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre completo" value={fullName} onChange={(event) => setFullName(event.target.value)} required />
+          <input className="glass-input w-full rounded-2xl px-5 py-4" placeholder="Nombre completo" value={fullName} onChange={(event) => setFullName(event.target.value)} required />
         ) : null}
-        <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+        <input className="glass-input w-full rounded-2xl px-5 py-4" placeholder="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         {mode !== "reset" ? (
-          <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" minLength={6} placeholder="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+          <input className="glass-input w-full rounded-2xl px-5 py-4" minLength={6} placeholder="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
         ) : null}
 
         {error ? (
           <div className="space-y-3 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">
             <p>{needsConfirmation ? "Tu correo aun no esta confirmado." : error}</p>
             {needsConfirmation ? (
-              <button className="rounded-lg bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/15 disabled:opacity-60" disabled={!email || resending} type="button" onClick={() => void handleResendConfirmation()}>
+              <button className="glass-button rounded-xl px-3 py-2 text-sm font-medium disabled:opacity-60" disabled={!email || resending} type="button" onClick={() => void handleResendConfirmation()}>
                 {resending ? "Reenviando..." : "Reenviar confirmacion"}
               </button>
             ) : null}
@@ -125,11 +137,12 @@ export default function LoginPage() {
         ) : null}
         {message ? <p className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">{message}</p> : null}
 
-        <button className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gold px-5 py-3 font-medium text-ink disabled:opacity-60" disabled={loading} type="submit">
+        <button className="glass-button inline-flex w-full items-center justify-center gap-3 rounded-2xl px-5 py-4 text-lg font-semibold disabled:opacity-60" disabled={loading} type="submit">
           {mode === "login" ? <LogIn className="h-4 w-4" /> : mode === "register" ? <UserPlus className="h-4 w-4" /> : <KeyRound className="h-4 w-4" />}
           {loading ? "Procesando..." : mode === "login" ? "Entrar" : mode === "register" ? "Crear cuenta" : "Enviar enlace"}
         </button>
       </form>
+      </section>
     </main>
   );
 }

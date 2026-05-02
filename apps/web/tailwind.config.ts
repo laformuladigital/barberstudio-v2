@@ -5,18 +5,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#0a0a0d",
-        smoke: "#f2efe9",
-        gold: "#c9a24f",
-        ember: "#a6482f",
-        slate: "#16181f",
+        ink: "#050506",
+        smoke: "#f7f7f2",
+        gold: "#d9dde2",
+        ember: "#9ca3af",
+        slate: "#111216",
+        silver: "#d9dde2",
+        graphite: "#090a0c",
       },
       fontFamily: {
-        sans: ["ui-sans-serif", "system-ui", "sans-serif"],
-        display: ["Georgia", "serif"],
+        sans: ["Montserrat", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["Cormorant Garamond", "Georgia", "serif"],
       },
     },
   },
   plugins: [],
 } satisfies Config;
-
