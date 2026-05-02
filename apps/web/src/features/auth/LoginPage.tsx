@@ -3,6 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { KeyRound, LogIn, UserPlus } from "lucide-react";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
+import type { AppRole } from "../../lib/types";
+
+function panelPathForRole(role: AppRole | null) {
+  if (role === "admin") return "/admin";
+  if (role === "barbero") return "/barbero";
+  return "/cliente";
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -38,9 +45,17 @@ export default function LoginPage() {
         if (resetError) throw resetError;
         setMessage("Te enviamos un enlace para restablecer tu contraseña. Revisa inbox y spam.");
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
-        navigate("/cliente");
+
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", signInData.user.id);
+
+        const roles = (roleData ?? []).map((item) => item.role as AppRole);
+        const nextRole = roles.includes("admin") ? "admin" : roles.includes("barbero") ? "barbero" : roles.includes("cliente") ? "cliente" : null;
+        navigate(panelPathForRole(nextRole));
       }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "No pudimos completar el acceso.");

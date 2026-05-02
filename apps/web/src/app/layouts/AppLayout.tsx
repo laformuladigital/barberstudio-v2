@@ -1,17 +1,33 @@
 import { CalendarDays, Home, LogIn, Scissors, Shield, UserRound } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useSessionContext } from "../providers/SessionProvider";
+import type { AppRole } from "../../lib/types";
 
-const navItems = [
+const publicNavItems = [
   { to: "/", label: "Inicio", icon: Home },
   { to: "/reservar", label: "Reservar", icon: CalendarDays },
-  { to: "/cliente", label: "Cliente", icon: UserRound },
-  { to: "/barbero", label: "Barbero", icon: Scissors },
-  { to: "/admin", label: "Admin", icon: Shield },
 ];
 
+function getPrivateNavItems(role: AppRole | null) {
+  if (!role) return [];
+
+  const items = [{ to: "/cliente", label: "Mi cuenta", icon: UserRound }];
+
+  if (role === "barbero" || role === "admin") {
+    items.push({ to: "/barbero", label: "Agenda", icon: Scissors });
+  }
+
+  if (role === "admin") {
+    items.push({ to: "/admin", label: "Admin", icon: Shield });
+  }
+
+  return items;
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, signOut } = useSessionContext();
+  const { user, role, signOut } = useSessionContext();
+  const privateNavItems = getPrivateNavItems(role);
+  const navItems = [...publicNavItems, ...privateNavItems];
 
   return (
     <div className="min-h-screen bg-ink text-smoke">
@@ -27,7 +43,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </Link>
 
-          <nav className="flex flex-wrap items-center gap-2 text-sm">
+          <nav className="flex flex-wrap items-center gap-2 text-sm" aria-label="Navegacion principal">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -44,7 +60,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div>
+          <div className="flex items-center gap-2">
+            {user && role ? (
+              <span className="hidden rounded-full border border-white/10 px-3 py-2 text-xs uppercase tracking-[0.18em] text-smoke/55 md:inline">
+                {role}
+              </span>
+            ) : null}
             {user ? (
               <button className="rounded-full bg-white/5 px-4 py-2 text-sm text-smoke/85 hover:bg-white/10" onClick={() => void signOut()}>
                 Salir
@@ -63,4 +84,3 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-

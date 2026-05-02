@@ -1,6 +1,7 @@
 import { ArrowRight, CalendarDays, Scissors, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
+import { useSessionContext } from "../../app/providers/SessionProvider";
 
 const highlights: Array<[string, string, LucideIcon]> = [
   ["Reserva publica", "Clientes reservan sin crear cuenta obligatoria.", CalendarDays],
@@ -9,6 +10,10 @@ const highlights: Array<[string, string, LucideIcon]> = [
 ];
 
 export default function HomePage() {
+  const { role } = useSessionContext();
+  const canSeeAdmin = role === "admin";
+  const canSeeBarber = role === "admin" || role === "barbero";
+
   return (
     <main className="space-y-10">
       <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
@@ -26,10 +31,18 @@ export default function HomePage() {
               <CalendarDays className="h-4 w-4" />
               Reservar ahora
             </Link>
-            <Link to="/admin" className="inline-flex items-center gap-2 rounded-full bg-white/5 px-5 py-3 font-medium text-smoke hover:bg-white/10">
-              Ver panel admin
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            {canSeeAdmin ? (
+              <Link to="/admin" className="inline-flex items-center gap-2 rounded-full bg-white/5 px-5 py-3 font-medium text-smoke hover:bg-white/10">
+                Panel admin
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            ) : null}
+            {!canSeeAdmin && canSeeBarber ? (
+              <Link to="/barbero" className="inline-flex items-center gap-2 rounded-full bg-white/5 px-5 py-3 font-medium text-smoke hover:bg-white/10">
+                Mi agenda
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            ) : null}
           </div>
         </div>
 
