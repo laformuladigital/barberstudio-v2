@@ -25,6 +25,7 @@
 - Realtime se habilita para `appointments` y `schedule_blocks`; la UI lo usa para refrescar datos, no para decidir permisos.
 - `automation_events` actua como outbox para n8n. No participa en la creacion de reservas.
 - La gestion de accesos usa RPC admin: `admin_set_user_role`, `admin_remove_user_role` y `admin_link_barber`.
+- Las fotos de perfil usan el bucket `avatars`; lectura publica, escritura limitada por RLS a la carpeta del usuario.
 
 ## Modelo
 

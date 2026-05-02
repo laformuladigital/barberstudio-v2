@@ -18,6 +18,6 @@ No debe:
 
 - `features/booking`: reserva publica sin cuenta obligatoria. Consume slots por RPC y crea reservas por RPC.
 - `features/auth`: login y registro con Supabase Auth.
-- `features/client`: historial y cancelacion controlada por RPC.
+- `features/client`: perfil editable, historial y cancelacion controlada por RPC.
 - `features/barber`: agenda diaria, estados de cita y solicitud de bloqueos.
 - `features/admin`: agenda general, metricas operativas y aprobacion de bloqueos.

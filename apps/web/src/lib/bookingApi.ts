@@ -41,6 +41,7 @@ export type ProfileRow = {
   email: string | null;
   full_name: string | null;
   phone: string | null;
+  avatar_url: string | null;
   created_at: string;
 };
 
@@ -206,12 +207,58 @@ export async function rejectScheduleBlock(id: string, reason?: string) {
 export async function listProfiles() {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,email,full_name,phone,created_at")
+    .select("id,email,full_name,phone,avatar_url,created_at")
     .order("created_at", { ascending: false })
     .limit(200);
 
   raise(error);
   return (data ?? []) as ProfileRow[];
+}
+
+export async function getMyProfile(userId: string) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id,email,full_name,phone,avatar_url,created_at")
+    .eq("id", userId)
+    .single();
+
+  raise(error);
+  return data as ProfileRow;
+}
+
+export async function updateMyProfile(input: { userId: string; fullName: string; phone: string; avatarUrl?: string | null }) {
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      full_name: input.fullName.trim() || null,
+      phone: input.phone.trim() || null,
+      avatar_url: input.avatarUrl ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.userId);
+
+  raise(error);
+}
+
+export async function uploadAvatar(userId: string, file: File) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("La foto debe ser una imagen.");
+  }
+
+  if (file.size > 1024 * 1024) {
+    throw new Error("La foto debe pesar maximo 1 MB.");
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${userId}/avatar-${Date.now()}.${extension}`;
+  const { error } = await supabase.storage.from("avatars").upload(path, file, {
+    cacheControl: "3600",
+    upsert: false,
+  });
+
+  raise(error);
+  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  return data.publicUrl;
 }
 
 export async function listUserRoles() {

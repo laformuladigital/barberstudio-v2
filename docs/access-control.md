@@ -47,6 +47,14 @@ Las acciones sensibles usan RPC:
 - `admin_remove_user_role`
 - `admin_link_barber`
 
+## Operacion diaria de roles y cuentas
+
+- Para convertir un usuario en barbero: el usuario se registra, el admin entra a `/admin`, asigna rol `barbero` y luego lo vincula como barbero.
+- Para quitar acceso: el admin usa `Accesos` y elimina el rol correspondiente.
+- Para admin adicional: primero el usuario se registra; luego un admin existente le asigna rol `admin`.
+- Para recuperar contraseña: el usuario usa `/login`, opcion `Recuperar`.
+- Para editar perfil: el usuario entra a `/cliente` y actualiza nombre, celular y foto.
+
 ## Seguridad
 
 - El frontend no escribe roles directamente.
