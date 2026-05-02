@@ -10,3 +10,4 @@ coverage
 *.tsbuildinfo
 supabase/.temp
 npm-debug.log*
+docs/Recursos/

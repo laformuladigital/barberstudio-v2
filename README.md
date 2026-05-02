@@ -32,3 +32,35 @@ npm run dev
 
 - `https://barberappstudio.com`
 
+## Rutas importantes
+
+- Proyecto local vivo: `C:\Deploy\Barberappoficial\barberstudio-v2`
+- Carpeta de entrega/diseno: `C:\Deploy\Barberappoficial\barberappstudio oficial`
+- GitHub: `https://github.com/laformuladigital/barberstudio-v2`
+- VPS: `root@177.7.52.248`
+- Ruta VPS: `/var/www/barberstudio-v2`
+
+## Cambios rapidos de texto o diseno
+
+1. Edita los archivos en `apps/web/src/features`.
+2. Valida:
+
+```bash
+cd apps/web
+npm run lint
+npm run build
+```
+
+3. Guarda, sube y despliega:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\save-and-deploy.ps1 -Message "Update site copy"
+```
+
+Para cambios de textos del Home:
+
+- `apps/web/src/features/home/HomePage.tsx`
+
+Para login:
+
+- `apps/web/src/features/auth/LoginPage.tsx`
