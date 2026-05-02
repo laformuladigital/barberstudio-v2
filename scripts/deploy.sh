@@ -22,4 +22,11 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
+if command -v certbot >/dev/null 2>&1; then
+  CERTBOT_EMAIL="${CERTBOT_EMAIL:-laformuladigitaloficial@gmail.com}"
+  certbot --nginx -d barberappstudio.com -d www.barberappstudio.com --non-interactive --agree-tos -m "$CERTBOT_EMAIL" --redirect
+  nginx -t
+  systemctl reload nginx
+fi
+
 URL="https://barberappstudio.com/" "$APP_DIR/scripts/healthcheck.sh"
