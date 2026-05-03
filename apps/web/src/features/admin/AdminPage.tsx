@@ -591,64 +591,104 @@ function AvailabilitySection({
   onReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const [filterBarberId, setFilterBarberId] = useState("all");
+  const [filterDay, setFilterDay] = useState("all");
+  const filteredRules = rules.filter((rule) => {
+    const barberMatch = filterBarberId === "all" || rule.barber_id === filterBarberId;
+    const dayMatch = filterDay === "all" || rule.day_of_week === Number(filterDay);
+    return barberMatch && dayMatch;
+  });
+  const activeCount = filteredRules.filter((rule) => rule.is_active).length;
+
   return (
-    <section className="grid gap-5 xl:grid-cols-[1fr_420px]">
-      <div className="overflow-hidden rounded-2xl border border-white/10">
-        <div className="border-b border-white/10 bg-white/[0.04] px-4 py-3 font-medium">Horarios de reserva</div>
-        <div className="grid gap-2 p-4 md:grid-cols-2">
-          {rules.map((rule) => (
-            <button className="rounded-xl bg-white/[0.03] p-3 text-left text-sm hover:bg-white/[0.07]" key={rule.id} onClick={() => onEdit(rule.id)} type="button">
-              <span className="block font-medium">{rule.barbers?.display_name ?? "Barbero"} · {dayNames[rule.day_of_week]}</span>
-              <span className="text-xs text-smoke/55">
-                {rule.start_time.slice(0, 5)} - {rule.end_time.slice(0, 5)} · cada {rule.slot_interval_min} min · {rule.is_active ? "activo" : "inactivo"}
-              </span>
-            </button>
-          ))}
-          {!rules.length ? <p className="text-sm text-smoke/60">No hay horarios configurados.</p> : null}
-        </div>
+    <section className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <Metric label="Horarios filtrados" value={filteredRules.length.toString()} />
+        <Metric label="Activos" value={activeCount.toString()} />
+        <Metric label="Barberos" value={barbers.length.toString()} />
       </div>
 
-      <form className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-5" onSubmit={onSubmit}>
-        <div>
-          <h2 className="font-medium">{form.ruleId ? "Editar horario" : "Nuevo horario"}</h2>
-          <p className="mt-1 text-sm text-smoke/55">Estos horarios alimentan los cupos reales de reserva.</p>
+      <div className="grid gap-5 xl:grid-cols-[1fr_390px]">
+        <div className="overflow-hidden rounded-2xl border border-white/10">
+          <div className="grid gap-3 border-b border-white/10 bg-white/[0.04] p-4 md:grid-cols-[1fr_180px_180px] md:items-center">
+            <div>
+              <p className="font-medium">Horarios de reserva</p>
+              <p className="mt-1 text-xs text-smoke/50">Filtra, edita y activa cupos por profesional.</p>
+            </div>
+            <select className="rounded-xl border border-white/10 bg-ink px-3 py-3 text-sm" value={filterBarberId} onChange={(event) => setFilterBarberId(event.target.value)}>
+              <option value="all">Todos los barberos</option>
+              {barbers.map((barber) => (
+                <option key={barber.id} value={barber.id}>{barber.display_name}</option>
+              ))}
+            </select>
+            <select className="rounded-xl border border-white/10 bg-ink px-3 py-3 text-sm" value={filterDay} onChange={(event) => setFilterDay(event.target.value)}>
+              <option value="all">Todos los dias</option>
+              {dayNames.map((day, index) => (
+                <option key={day} value={index}>{day}</option>
+              ))}
+            </select>
+          </div>
+          <div className="divide-y divide-white/10">
+            {filteredRules.map((rule) => (
+              <button className="grid w-full gap-2 bg-white/[0.025] p-4 text-left text-sm transition hover:bg-white/[0.07] md:grid-cols-[1fr_auto_auto] md:items-center" key={rule.id} onClick={() => onEdit(rule.id)} type="button">
+                <span>
+                  <span className="block font-medium">{rule.barbers?.display_name ?? "Barbero"}</span>
+                  <span className="mt-1 block text-xs text-smoke/55">{dayNames[rule.day_of_week]} · {rule.start_time.slice(0, 5)} - {rule.end_time.slice(0, 5)}</span>
+                </span>
+                <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-smoke/60">Cada {rule.slot_interval_min} min</span>
+                <span className={`rounded-full px-3 py-1 text-xs ${rule.is_active ? "bg-emerald-400/10 text-emerald-100" : "bg-white/5 text-smoke/50"}`}>
+                  {rule.is_active ? "Activo" : "Inactivo"}
+                </span>
+              </button>
+            ))}
+            {!filteredRules.length ? <p className="p-5 text-sm text-smoke/60">No hay horarios para este filtro.</p> : null}
+          </div>
         </div>
-        <label className="space-y-2 text-sm text-smoke/65">
-          <span>Barbero</span>
-          <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" value={form.ruleBarberId} onChange={(event) => setters.setRuleBarberId(event.target.value)} required>
-            {barbers.map((barber) => (
-              <option key={barber.id} value={barber.id}>{barber.display_name}</option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-2 text-sm text-smoke/65">
-          <span>Dia de la semana</span>
-          <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" value={form.ruleDayOfWeek} onChange={(event) => setters.setRuleDayOfWeek(Number(event.target.value))}>
-            {dayNames.map((day, index) => (
-              <option key={day} value={index}>{day}</option>
-            ))}
-          </select>
-        </label>
-        <div className="grid grid-cols-2 gap-3">
+
+        <form className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-5" onSubmit={onSubmit}>
+          <div>
+            <h2 className="font-medium">{form.ruleId ? "Editar horario" : "Nuevo horario"}</h2>
+            <p className="mt-1 text-sm text-smoke/55">Controla cupos reales por barbero.</p>
+          </div>
           <label className="space-y-2 text-sm text-smoke/65">
-            <span>Hora de apertura</span>
+            <span>Barbero</span>
+            <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" value={form.ruleBarberId} onChange={(event) => setters.setRuleBarberId(event.target.value)} required>
+              {barbers.map((barber) => (
+                <option key={barber.id} value={barber.id}>{barber.display_name}</option>
+              ))}
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="space-y-2 text-sm text-smoke/65">
+              <span>Dia</span>
+              <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" value={form.ruleDayOfWeek} onChange={(event) => setters.setRuleDayOfWeek(Number(event.target.value))}>
+                {dayNames.map((day, index) => (
+                  <option key={day} value={index}>{day}</option>
+                ))}
+              </select>
+            </label>
+            <NumberInput label="Intervalo (min)" value={form.ruleInterval} min={5} max={120} onChange={setters.setRuleInterval} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+          <label className="space-y-2 text-sm text-smoke/65">
+            <span>Apertura</span>
             <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" type="time" value={form.ruleStartTime} onChange={(event) => setters.setRuleStartTime(event.target.value)} required />
           </label>
           <label className="space-y-2 text-sm text-smoke/65">
-            <span>Hora de cierre</span>
+            <span>Cierre</span>
             <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" type="time" value={form.ruleEndTime} onChange={(event) => setters.setRuleEndTime(event.target.value)} required />
           </label>
-        </div>
-        <NumberInput label="Intervalo de cupos (min)" value={form.ruleInterval} min={5} max={120} onChange={setters.setRuleInterval} />
-        <label className="flex items-center gap-2 text-sm text-smoke/70">
-          <input checked={form.ruleActive} onChange={(event) => setters.setRuleActive(event.target.checked)} type="checkbox" />
-          Horario activo para reservas
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          <button className="rounded-xl bg-gold px-4 py-3 font-medium text-ink" type="submit">{form.ruleId ? "Actualizar" : "Crear"} horario</button>
-          <button className="rounded-xl bg-white/5 px-4 py-3 font-medium hover:bg-white/10" onClick={onReset} type="button">Nuevo</button>
-        </div>
-      </form>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-smoke/70">
+            <input checked={form.ruleActive} onChange={(event) => setters.setRuleActive(event.target.checked)} type="checkbox" />
+            Activo para reservas
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="rounded-xl bg-gold px-4 py-3 font-medium text-ink" type="submit">{form.ruleId ? "Actualizar" : "Crear"}</button>
+            <button className="rounded-xl bg-white/5 px-4 py-3 font-medium hover:bg-white/10" onClick={onReset} type="button">Limpiar</button>
+          </div>
+        </form>
+      </div>
     </section>
   );
 }
