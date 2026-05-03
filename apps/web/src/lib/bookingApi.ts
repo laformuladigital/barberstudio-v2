@@ -37,6 +37,17 @@ export type ScheduleBlockRow = {
   barbers?: Pick<Barber, "display_name"> | null;
 };
 
+export type AvailabilityRuleRow = {
+  id: string;
+  barber_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  slot_interval_min: number;
+  is_active: boolean;
+  barbers?: Pick<Barber, "display_name"> | null;
+};
+
 export type ProfileRow = {
   id: string;
   email: string | null;
@@ -158,6 +169,43 @@ export async function listScheduleBlocks() {
 
   raise(error);
   return (data ?? []) as unknown as ScheduleBlockRow[];
+}
+
+export async function listAvailabilityRules() {
+  const { data, error } = await supabase
+    .from("availability_rules")
+    .select("id,barber_id,day_of_week,start_time,end_time,slot_interval_min,is_active,barbers(display_name)")
+    .order("day_of_week", { ascending: true })
+    .order("start_time", { ascending: true });
+
+  raise(error);
+  return (data ?? []) as unknown as AvailabilityRuleRow[];
+}
+
+export async function upsertAvailabilityRule(input: {
+  ruleId?: string | null;
+  barberId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotIntervalMin: number;
+  active: boolean;
+}) {
+  const payload = {
+    barber_id: input.barberId,
+    day_of_week: input.dayOfWeek,
+    start_time: input.startTime,
+    end_time: input.endTime,
+    slot_interval_min: input.slotIntervalMin,
+    is_active: input.active,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = input.ruleId
+    ? await supabase.from("availability_rules").update(payload).eq("id", input.ruleId)
+    : await supabase.from("availability_rules").insert(payload);
+
+  raise(error);
 }
 
 export async function cancelAppointment(id: string, reason?: string) {

@@ -206,6 +206,7 @@ export default function BarberPage() {
               <Camera className="h-4 w-4 text-gold" />
               <h2 className="font-medium">Mi perfil</h2>
             </div>
+            <p className="text-sm leading-6 text-smoke/55">Puedes actualizar tu foto, bio y trabajos sin pedir aprobacion. Los cambios se ven en reservas.</p>
             {myBarber ? (
               <>
                 <div className="grid h-32 place-items-center overflow-hidden rounded-2xl border border-white/10 bg-ink">
@@ -216,9 +217,9 @@ export default function BarberPage() {
                   Cambiar foto
                   <input className="sr-only" accept="image/png,image/jpeg,image/webp,image/gif" type="file" onChange={(event) => void handleMediaUpload(event, "avatar")} disabled={savingProfile} />
                 </label>
-                <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre publico" value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
-                <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Especialidades separadas por coma" value={specialties} onChange={(event) => setSpecialties(event.target.value)} />
-                <textarea className="min-h-20 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Bio corta" value={bio} onChange={(event) => setBio(event.target.value)} />
+                <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre publico del barbero" value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
+                <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Especialidades: fade, barba, cejas..." value={specialties} onChange={(event) => setSpecialties(event.target.value)} />
+                <textarea className="min-h-20 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Bio corta para que el cliente conozca tu estilo" value={bio} onChange={(event) => setBio(event.target.value)} />
                 <div className="grid grid-cols-3 gap-2">
                   {galleryUrls.map((url) => (
                     <button className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]" key={url} onClick={() => void removeGalleryImage(url)} type="button" title="Quitar foto">

@@ -7,14 +7,17 @@ import {
   listAdminBarbers,
   listAdminServices,
   listAppointments,
+  listAvailabilityRules,
   listProfiles,
   listScheduleBlocks,
   listUserRoles,
   removeUserRole,
   rejectScheduleBlock,
   setUserRole,
+  upsertAvailabilityRule,
   upsertBarber,
   upsertService,
+  type AvailabilityRuleRow,
   type AppointmentRow,
   type ProfileRow,
   type ScheduleBlockRow,
@@ -24,12 +27,13 @@ import { formatTime, money, todayISO } from "../../lib/formatters";
 import { supabase } from "../../lib/supabase";
 import type { AppRole, Barber, Service } from "../../lib/types";
 
-type AdminSection = "operacion" | "agenda" | "catalogo" | "accesos" | "bloqueos";
+type AdminSection = "operacion" | "agenda" | "catalogo" | "horarios" | "accesos" | "bloqueos";
 
 const sections: Array<{ id: AdminSection; label: string; icon: typeof CalendarDays }> = [
   { id: "operacion", label: "Operacion", icon: Settings2 },
   { id: "agenda", label: "Agenda", icon: CalendarDays },
   { id: "catalogo", label: "Catalogo", icon: Scissors },
+  { id: "horarios", label: "Horarios", icon: CalendarDays },
   { id: "accesos", label: "Accesos", icon: Users },
   { id: "bloqueos", label: "Bloqueos", icon: Blocks },
 ];
@@ -38,6 +42,7 @@ export default function AdminPage() {
   const [section, setSection] = useState<AdminSection>("operacion");
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
+  const [rules, setRules] = useState<AvailabilityRuleRow[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
@@ -64,6 +69,13 @@ export default function AdminPage() {
   const [catalogBarberActive, setCatalogBarberActive] = useState(true);
   const [catalogBarberAvatarUrl, setCatalogBarberAvatarUrl] = useState("");
   const [catalogBarberGalleryUrls, setCatalogBarberGalleryUrls] = useState("");
+  const [ruleId, setRuleId] = useState("");
+  const [ruleBarberId, setRuleBarberId] = useState("");
+  const [ruleDayOfWeek, setRuleDayOfWeek] = useState(1);
+  const [ruleStartTime, setRuleStartTime] = useState("09:00");
+  const [ruleEndTime, setRuleEndTime] = useState("19:00");
+  const [ruleInterval, setRuleInterval] = useState(30);
+  const [ruleActive, setRuleActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const revenue = useMemo(
@@ -85,13 +97,14 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [nextAppointments, nextBlocks, nextServices, nextBarbers, nextProfiles, nextRoles] = await Promise.all([
+      const [nextAppointments, nextBlocks, nextServices, nextBarbers, nextProfiles, nextRoles, nextRules] = await Promise.all([
         listAppointments("admin", localDate),
         listScheduleBlocks(),
         listAdminServices(),
         listAdminBarbers(),
         listProfiles(),
         listUserRoles(),
+        listAvailabilityRules(),
       ]);
       setAppointments(nextAppointments);
       setBlocks(nextBlocks);
@@ -99,7 +112,9 @@ export default function AdminPage() {
       setBarbers(nextBarbers);
       setProfiles(nextProfiles);
       setRoles(nextRoles);
+      setRules(nextRules);
       setSelectedUserId((current) => current || nextProfiles[0]?.id || "");
+      setRuleBarberId((current) => current || nextBarbers[0]?.id || "");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "No pudimos cargar el panel admin.");
     }
@@ -227,6 +242,44 @@ export default function AdminPage() {
     resetBarberForm();
   }
 
+  function loadRuleForEdit(nextRuleId: string) {
+    const rule = rules.find((item) => item.id === nextRuleId);
+    if (!rule) return;
+    setRuleId(rule.id);
+    setRuleBarberId(rule.barber_id);
+    setRuleDayOfWeek(rule.day_of_week);
+    setRuleStartTime(rule.start_time.slice(0, 5));
+    setRuleEndTime(rule.end_time.slice(0, 5));
+    setRuleInterval(rule.slot_interval_min);
+    setRuleActive(rule.is_active);
+  }
+
+  function resetRuleForm() {
+    setRuleId("");
+    setRuleBarberId(barbers[0]?.id || "");
+    setRuleDayOfWeek(1);
+    setRuleStartTime("09:00");
+    setRuleEndTime("19:00");
+    setRuleInterval(30);
+    setRuleActive(true);
+  }
+
+  async function handleSaveRule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await run(() =>
+      upsertAvailabilityRule({
+        ruleId: ruleId || null,
+        barberId: ruleBarberId,
+        dayOfWeek: ruleDayOfWeek,
+        startTime: ruleStartTime,
+        endTime: ruleEndTime,
+        slotIntervalMin: ruleInterval,
+        active: ruleActive,
+      }),
+    );
+    resetRuleForm();
+  }
+
   return (
     <main className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -291,6 +344,18 @@ export default function AdminPage() {
             onSubmit={handleSaveBarber}
           />
         </section>
+      ) : null}
+
+      {section === "horarios" ? (
+        <AvailabilitySection
+          barbers={barbers}
+          rules={rules}
+          form={{ ruleId, ruleBarberId, ruleDayOfWeek, ruleStartTime, ruleEndTime, ruleInterval, ruleActive }}
+          setters={{ setRuleBarberId, setRuleDayOfWeek, setRuleStartTime, setRuleEndTime, setRuleInterval, setRuleActive }}
+          onEdit={loadRuleForEdit}
+          onReset={resetRuleForm}
+          onSubmit={handleSaveRule}
+        />
       ) : null}
 
       {section === "accesos" ? (
@@ -406,12 +471,12 @@ function CatalogServices({
           <textarea className="min-h-16 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Descripcion" value={form.serviceDescription} onChange={(event) => setters.setServiceDescription(event.target.value)} />
           <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="URL de foto del servicio" value={form.serviceImageUrl} onChange={(event) => setters.setServiceImageUrl(event.target.value)} />
           <div className="grid grid-cols-2 gap-3">
-            <NumberInput value={form.serviceDuration} min={15} max={360} onChange={setters.setServiceDuration} />
-            <NumberInput value={form.serviceBuffer} min={0} max={120} onChange={setters.setServiceBuffer} />
+            <NumberInput label="Duracion del servicio (min)" value={form.serviceDuration} min={15} max={360} onChange={setters.setServiceDuration} />
+            <NumberInput label="Buffer entre citas (min)" value={form.serviceBuffer} min={0} max={120} onChange={setters.setServiceBuffer} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <NumberInput value={form.servicePrice} min={0} onChange={setters.setServicePrice} />
-            <NumberInput value={form.serviceOrder} min={0} onChange={setters.setServiceOrder} />
+            <NumberInput label="Precio del servicio (COP)" value={form.servicePrice} min={0} onChange={setters.setServicePrice} />
+            <NumberInput label="Orden visual" value={form.serviceOrder} min={0} onChange={setters.setServiceOrder} />
           </div>
           <label className="flex items-center gap-2 text-sm text-smoke/70">
             <input checked={form.serviceActive} onChange={(event) => setters.setServiceActive(event.target.checked)} type="checkbox" />
@@ -488,6 +553,102 @@ function CatalogBarbers({
           </div>
         </form>
       </div>
+    </section>
+  );
+}
+
+const dayNames = ["Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"];
+
+function AvailabilitySection({
+  barbers,
+  rules,
+  form,
+  setters,
+  onEdit,
+  onReset,
+  onSubmit,
+}: {
+  barbers: Barber[];
+  rules: AvailabilityRuleRow[];
+  form: {
+    ruleId: string;
+    ruleBarberId: string;
+    ruleDayOfWeek: number;
+    ruleStartTime: string;
+    ruleEndTime: string;
+    ruleInterval: number;
+    ruleActive: boolean;
+  };
+  setters: {
+    setRuleBarberId: (value: string) => void;
+    setRuleDayOfWeek: (value: number) => void;
+    setRuleStartTime: (value: string) => void;
+    setRuleEndTime: (value: string) => void;
+    setRuleInterval: (value: number) => void;
+    setRuleActive: (value: boolean) => void;
+  };
+  onEdit: (id: string) => void;
+  onReset: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <section className="grid gap-5 xl:grid-cols-[1fr_420px]">
+      <div className="overflow-hidden rounded-2xl border border-white/10">
+        <div className="border-b border-white/10 bg-white/[0.04] px-4 py-3 font-medium">Horarios de reserva</div>
+        <div className="grid gap-2 p-4 md:grid-cols-2">
+          {rules.map((rule) => (
+            <button className="rounded-xl bg-white/[0.03] p-3 text-left text-sm hover:bg-white/[0.07]" key={rule.id} onClick={() => onEdit(rule.id)} type="button">
+              <span className="block font-medium">{rule.barbers?.display_name ?? "Barbero"} · {dayNames[rule.day_of_week]}</span>
+              <span className="text-xs text-smoke/55">
+                {rule.start_time.slice(0, 5)} - {rule.end_time.slice(0, 5)} · cada {rule.slot_interval_min} min · {rule.is_active ? "activo" : "inactivo"}
+              </span>
+            </button>
+          ))}
+          {!rules.length ? <p className="text-sm text-smoke/60">No hay horarios configurados.</p> : null}
+        </div>
+      </div>
+
+      <form className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-5" onSubmit={onSubmit}>
+        <div>
+          <h2 className="font-medium">{form.ruleId ? "Editar horario" : "Nuevo horario"}</h2>
+          <p className="mt-1 text-sm text-smoke/55">Estos horarios alimentan los cupos reales de reserva.</p>
+        </div>
+        <label className="space-y-2 text-sm text-smoke/65">
+          <span>Barbero</span>
+          <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" value={form.ruleBarberId} onChange={(event) => setters.setRuleBarberId(event.target.value)} required>
+            {barbers.map((barber) => (
+              <option key={barber.id} value={barber.id}>{barber.display_name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-2 text-sm text-smoke/65">
+          <span>Dia de la semana</span>
+          <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" value={form.ruleDayOfWeek} onChange={(event) => setters.setRuleDayOfWeek(Number(event.target.value))}>
+            {dayNames.map((day, index) => (
+              <option key={day} value={index}>{day}</option>
+            ))}
+          </select>
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="space-y-2 text-sm text-smoke/65">
+            <span>Hora de apertura</span>
+            <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" type="time" value={form.ruleStartTime} onChange={(event) => setters.setRuleStartTime(event.target.value)} required />
+          </label>
+          <label className="space-y-2 text-sm text-smoke/65">
+            <span>Hora de cierre</span>
+            <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" type="time" value={form.ruleEndTime} onChange={(event) => setters.setRuleEndTime(event.target.value)} required />
+          </label>
+        </div>
+        <NumberInput label="Intervalo de cupos (min)" value={form.ruleInterval} min={5} max={120} onChange={setters.setRuleInterval} />
+        <label className="flex items-center gap-2 text-sm text-smoke/70">
+          <input checked={form.ruleActive} onChange={(event) => setters.setRuleActive(event.target.checked)} type="checkbox" />
+          Horario activo para reservas
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <button className="rounded-xl bg-gold px-4 py-3 font-medium text-ink" type="submit">{form.ruleId ? "Actualizar" : "Crear"} horario</button>
+          <button className="rounded-xl bg-white/5 px-4 py-3 font-medium hover:bg-white/10" onClick={onReset} type="button">Nuevo</button>
+        </div>
+      </form>
     </section>
   );
 }
@@ -620,8 +781,13 @@ function UserSelect({ profiles, selectedUserId, onUserChange }: { profiles: Prof
   );
 }
 
-function NumberInput({ value, min, max, onChange }: { value: number; min: number; max?: number; onChange: (value: number) => void }) {
-  return <input className="rounded-xl border border-white/10 bg-ink px-3 py-3" min={min} max={max} type="number" value={value} onChange={(event) => onChange(Number(event.target.value))} />;
+function NumberInput({ label, value, min, max, onChange }: { label: string; value: number; min: number; max?: number; onChange: (value: number) => void }) {
+  return (
+    <label className="space-y-2 text-sm text-smoke/65">
+      <span>{label}</span>
+      <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" min={min} max={max} type="number" value={value} onChange={(event) => onChange(Number(event.target.value))} />
+    </label>
+  );
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

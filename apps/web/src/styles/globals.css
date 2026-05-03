@@ -118,4 +118,34 @@ textarea {
     background-clip: text;
     color: transparent;
   }
+
+  .immersive-enter {
+    animation: immersive-enter 520ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+  }
+
+  .liquid-card {
+    transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  }
+
+  .liquid-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 18px 48px rgba(0, 0, 0, 0.32),
+      0 0 28px rgba(255, 255, 255, 0.08);
+  }
+}
+
+@keyframes immersive-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+    filter: blur(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
 }

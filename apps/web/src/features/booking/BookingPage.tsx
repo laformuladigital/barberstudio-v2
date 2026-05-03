@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState, type ForwardedRef, type ReactNode } from "react";
 import { CalendarDays, CheckCircle2, ImageIcon, Loader2, UserRound } from "lucide-react";
 import {
   bookAppointment,
@@ -23,6 +23,7 @@ export default function BookingPage() {
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [notes, setNotes] = useState("");
+  const [acceptPolicy, setAcceptPolicy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [slotLoading, setSlotLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -32,6 +33,11 @@ export default function BookingPage() {
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [serviceId, services]);
   const selectedBarber = useMemo(() => barbers.find((barber) => barber.id === barberId), [barberId, barbers]);
   const directLink = "https://barberappstudio.com/reservar";
+  const serviceRef = useRef<HTMLElement | null>(null);
+  const barberRef = useRef<HTMLElement | null>(null);
+  const scheduleRef = useRef<HTMLElement | null>(null);
+  const dataRef = useRef<HTMLElement | null>(null);
+  const activeStep = slotTime ? 4 : barberId && serviceId ? 3 : serviceId ? 2 : 1;
 
   useEffect(() => {
     let mounted = true;
@@ -109,6 +115,7 @@ export default function BookingPage() {
       setGuestPhone("");
       setGuestEmail("");
       setNotes("");
+      setAcceptPolicy(false);
       setSlots((current) => current.filter((slot) => slot.slot_time !== slotTime));
       setSlotTime("");
     } catch (nextError) {
@@ -116,6 +123,25 @@ export default function BookingPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function moveTo(ref: React.RefObject<HTMLElement | null>) {
+    window.setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+  }
+
+  function selectService(id: string) {
+    setServiceId(id);
+    moveTo(barberRef);
+  }
+
+  function selectBarber(id: string) {
+    setBarberId(id);
+    moveTo(scheduleRef);
+  }
+
+  function selectSlot(time: string) {
+    setSlotTime(time);
+    moveTo(dataRef);
   }
 
   return (
@@ -144,16 +170,32 @@ export default function BookingPage() {
         </p>
       ) : null}
 
+      <div className="glass-panel immersive-enter sticky top-2 z-20 grid gap-2 rounded-2xl p-2 sm:grid-cols-4">
+        {["Servicio", "Barbero", "Horario", "Datos"].map((label, index) => {
+          const step = index + 1;
+          return (
+            <button
+              className={`rounded-xl px-3 py-2 text-xs uppercase tracking-[0.18em] transition ${activeStep >= step ? "bg-white text-ink" : "bg-white/5 text-smoke/55"}`}
+              key={label}
+              type="button"
+              onClick={() => [serviceRef, barberRef, scheduleRef, dataRef][index].current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
+              {step}. {label}
+            </button>
+          );
+        })}
+      </div>
+
       <form onSubmit={(event) => void handleSubmit(event)} className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <section className="space-y-6">
-          <Step title="1. Servicio" detail="Ordenados A-Z con foto descriptiva.">
+          <Step ref={serviceRef} title="1. Servicio" detail="Ordenados A-Z con foto descriptiva.">
             <div className="grid gap-3 md:grid-cols-2">
               {services.map((service) => (
                 <button
-                  className={`group overflow-hidden rounded-2xl border text-left transition ${serviceId === service.id ? "border-white/70 bg-white/[0.09]" : "border-white/10 bg-white/[0.035] hover:border-white/30"}`}
+                  className={`liquid-card group overflow-hidden rounded-2xl border text-left ${serviceId === service.id ? "border-white/70 bg-white/[0.09]" : "border-white/10 bg-white/[0.035] hover:border-white/30"}`}
                   key={service.id}
                   type="button"
-                  onClick={() => setServiceId(service.id)}
+                  onClick={() => selectService(service.id)}
                 >
                   <Media imageUrl={service.image_url} fallback={<ImageIcon className="h-6 w-6 text-white/45" />} />
                   <div className="p-4">
@@ -169,14 +211,14 @@ export default function BookingPage() {
             </div>
           </Step>
 
-          <Step title="2. Barbero" detail="Elige el profesional viendo su perfil y trabajos.">
+          <Step ref={barberRef} title="2. Barbero" detail="Elige el profesional viendo su perfil y trabajos.">
             <div className="grid gap-3 md:grid-cols-2">
               {barbers.map((barber) => (
                 <button
-                  className={`overflow-hidden rounded-2xl border text-left transition ${barberId === barber.id ? "border-white/70 bg-white/[0.09]" : "border-white/10 bg-white/[0.035] hover:border-white/30"}`}
+                  className={`liquid-card overflow-hidden rounded-2xl border text-left ${barberId === barber.id ? "border-white/70 bg-white/[0.09]" : "border-white/10 bg-white/[0.035] hover:border-white/30"}`}
                   key={barber.id}
                   type="button"
-                  onClick={() => setBarberId(barber.id)}
+                  onClick={() => selectBarber(barber.id)}
                 >
                   <Media imageUrl={barber.avatar_url || barber.gallery_urls?.[0] || null} fallback={<UserRound className="h-6 w-6 text-white/45" />} />
                   <div className="p-4">
@@ -191,7 +233,7 @@ export default function BookingPage() {
         </section>
 
         <aside className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.04] p-5 xl:sticky xl:top-4 xl:self-start">
-          <Step title="3. Horario" detail={selectedService && selectedBarber ? `${selectedService.name} con ${selectedBarber.display_name}` : "Selecciona servicio y barbero."}>
+          <Step ref={scheduleRef} title="3. Horario" detail={selectedService && selectedBarber ? `${selectedService.name} con ${selectedBarber.display_name}` : "Selecciona servicio y barbero."}>
             <label className="block space-y-2 text-sm">
               <span className="text-smoke/70">Fecha</span>
               <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" min={todayISO()} type="date" value={localDate} onChange={(event) => setLocalDate(event.target.value)} required />
@@ -207,7 +249,7 @@ export default function BookingPage() {
                     className={`rounded-xl border px-3 py-3 text-sm transition ${slotTime === slot.slot_time ? "border-white bg-white text-ink" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
                     key={slot.slot_time}
                     type="button"
-                    onClick={() => setSlotTime(slot.slot_time)}
+                    onClick={() => selectSlot(slot.slot_time)}
                   >
                     {formatTime(slot.starts_at)}
                   </button>
@@ -217,12 +259,18 @@ export default function BookingPage() {
             )}
           </Step>
 
-          <Step title="4. Tus datos" detail="La cuenta es opcional para reservar.">
+          <Step ref={dataRef} title="4. Tus datos" detail="La cuenta es opcional para reservar.">
             <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre" value={guestName} onChange={(event) => setGuestName(event.target.value)} required />
             <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Celular" value={guestPhone} onChange={(event) => setGuestPhone(event.target.value)} required />
             <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Email opcional" type="email" value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} />
             <textarea className="min-h-24 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Notas opcionales" value={notes} onChange={(event) => setNotes(event.target.value)} />
-            <button className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60" disabled={!slotTime || submitting} type="submit">
+            <label className="flex cursor-pointer gap-3 rounded-xl border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-smoke/70">
+              <input className="mt-1 h-4 w-4 accent-white" checked={acceptPolicy} onChange={(event) => setAcceptPolicy(event.target.checked)} type="checkbox" required />
+              <span>
+                Acepto la politica de reservas: el cupo queda bloqueado al confirmar y la cancelacion debe hacerse con minimo 2 horas de anticipacion.
+              </span>
+            </label>
+            <button className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60" disabled={!slotTime || !acceptPolicy || submitting} type="submit">
               <CalendarDays className="h-4 w-4" />
               {submitting ? "Reservando..." : "Confirmar reserva"}
             </button>
@@ -233,9 +281,12 @@ export default function BookingPage() {
   );
 }
 
-function Step({ title, detail, children }: { title: string; detail: string; children: ReactNode }) {
+const Step = forwardRef(function Step(
+  { title, detail, children }: { title: string; detail: string; children: ReactNode },
+  ref: ForwardedRef<HTMLElement>,
+) {
   return (
-    <section className="space-y-4">
+    <section className="immersive-enter scroll-mt-28 space-y-4" ref={ref}>
       <div>
         <h2 className="text-lg font-semibold">{title}</h2>
         <p className="mt-1 text-sm text-smoke/55">{detail}</p>
@@ -243,7 +294,7 @@ function Step({ title, detail, children }: { title: string; detail: string; chil
       <div className="space-y-3">{children}</div>
     </section>
   );
-}
+});
 
 function Media({ imageUrl, fallback }: { imageUrl?: string | null; fallback: ReactNode }) {
   return (
