@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Blocks, CalendarDays, Check, RefreshCw, Scissors, Settings2, ShieldCheck, Users, X } from "lucide-react";
+import { Blocks, CalendarDays, Check, ImageIcon, RefreshCw, Scissors, Settings2, ShieldCheck, Users, X } from "lucide-react";
 import {
   approveScheduleBlock,
   cancelAppointment,
@@ -56,11 +56,14 @@ export default function AdminPage() {
   const [servicePrice, setServicePrice] = useState(45000);
   const [serviceActive, setServiceActive] = useState(true);
   const [serviceOrder, setServiceOrder] = useState(1);
+  const [serviceImageUrl, setServiceImageUrl] = useState("");
   const [catalogBarberId, setCatalogBarberId] = useState("");
   const [catalogBarberName, setCatalogBarberName] = useState("");
   const [catalogBarberBio, setCatalogBarberBio] = useState("");
   const [catalogBarberSpecialties, setCatalogBarberSpecialties] = useState("");
   const [catalogBarberActive, setCatalogBarberActive] = useState(true);
+  const [catalogBarberAvatarUrl, setCatalogBarberAvatarUrl] = useState("");
+  const [catalogBarberGalleryUrls, setCatalogBarberGalleryUrls] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const revenue = useMemo(
@@ -153,6 +156,7 @@ export default function AdminPage() {
     setServicePrice(Math.round(service.price_cents / 100));
     setServiceActive(service.active);
     setServiceOrder(service.order_index);
+    setServiceImageUrl(service.image_url ?? "");
   }
 
   function resetServiceForm() {
@@ -164,6 +168,7 @@ export default function AdminPage() {
     setServicePrice(45000);
     setServiceActive(true);
     setServiceOrder(services.length + 1);
+    setServiceImageUrl("");
   }
 
   async function handleSaveService(event: FormEvent<HTMLFormElement>) {
@@ -178,6 +183,7 @@ export default function AdminPage() {
         priceCents: Math.max(0, Math.round(servicePrice * 100)),
         active: serviceActive,
         orderIndex: serviceOrder,
+        imageUrl: serviceImageUrl,
       }),
     );
     resetServiceForm();
@@ -191,6 +197,8 @@ export default function AdminPage() {
     setCatalogBarberBio(barber.bio ?? "");
     setCatalogBarberSpecialties(barber.specialties.join(", "));
     setCatalogBarberActive(barber.is_active);
+    setCatalogBarberAvatarUrl(barber.avatar_url ?? "");
+    setCatalogBarberGalleryUrls((barber.gallery_urls ?? []).join(", "));
   }
 
   function resetBarberForm() {
@@ -199,6 +207,8 @@ export default function AdminPage() {
     setCatalogBarberBio("");
     setCatalogBarberSpecialties("");
     setCatalogBarberActive(true);
+    setCatalogBarberAvatarUrl("");
+    setCatalogBarberGalleryUrls("");
   }
 
   async function handleSaveBarber(event: FormEvent<HTMLFormElement>) {
@@ -210,6 +220,8 @@ export default function AdminPage() {
         bio: catalogBarberBio,
         specialties: splitList(catalogBarberSpecialties),
         active: catalogBarberActive,
+        avatarUrl: catalogBarberAvatarUrl,
+        galleryUrls: splitList(catalogBarberGalleryUrls),
       }),
     );
     resetBarberForm();
@@ -264,16 +276,16 @@ export default function AdminPage() {
         <section className="grid gap-5 xl:grid-cols-2">
           <CatalogServices
             services={services}
-            form={{ catalogServiceId, serviceName, serviceDescription, serviceDuration, serviceBuffer, servicePrice, serviceActive, serviceOrder }}
-            setters={{ setServiceName, setServiceDescription, setServiceDuration, setServiceBuffer, setServicePrice, setServiceActive, setServiceOrder }}
+            form={{ catalogServiceId, serviceName, serviceDescription, serviceDuration, serviceBuffer, servicePrice, serviceActive, serviceOrder, serviceImageUrl }}
+            setters={{ setServiceName, setServiceDescription, setServiceDuration, setServiceBuffer, setServicePrice, setServiceActive, setServiceOrder, setServiceImageUrl }}
             onEdit={loadServiceForEdit}
             onReset={resetServiceForm}
             onSubmit={handleSaveService}
           />
           <CatalogBarbers
             barbers={barbers}
-            form={{ catalogBarberId, catalogBarberName, catalogBarberBio, catalogBarberSpecialties, catalogBarberActive }}
-            setters={{ setCatalogBarberName, setCatalogBarberBio, setCatalogBarberSpecialties, setCatalogBarberActive }}
+            form={{ catalogBarberId, catalogBarberName, catalogBarberBio, catalogBarberSpecialties, catalogBarberActive, catalogBarberAvatarUrl, catalogBarberGalleryUrls }}
+            setters={{ setCatalogBarberName, setCatalogBarberBio, setCatalogBarberSpecialties, setCatalogBarberActive, setCatalogBarberAvatarUrl, setCatalogBarberGalleryUrls }}
             onEdit={loadBarberForEdit}
             onReset={resetBarberForm}
             onSubmit={handleSaveBarber}
@@ -321,8 +333,9 @@ function AgendaSection({ appointments, onCancel }: { appointments: AppointmentRo
           <div>
             <p className="font-medium">{formatTime(appointment.starts_at)} · {appointment.services?.name ?? "Servicio"}</p>
             <p className="mt-1 text-sm text-smoke/65">
-              {appointment.barbers?.display_name ?? "Barbero"} · {appointment.guest_name ?? "Cliente registrado"} · {appointment.guest_phone ?? "Sin celular"}
+              {appointment.barbers?.display_name ?? "Barbero"} · {appointment.client?.full_name ?? appointment.guest_name ?? "Cliente registrado"} · {appointment.client?.phone ?? appointment.guest_phone ?? "Sin celular"}
             </p>
+            {appointment.client?.no_show_count ? <p className="mt-2 text-xs text-red-100/80">Inasistencias del cliente: {appointment.client.no_show_count}</p> : null}
             <p className="mt-2 text-xs uppercase tracking-[0.2em] text-gold">{appointment.status}</p>
           </div>
           {appointment.status === "pending" || appointment.status === "confirmed" ? (
@@ -355,6 +368,7 @@ function CatalogServices({
     servicePrice: number;
     serviceActive: boolean;
     serviceOrder: number;
+    serviceImageUrl: string;
   };
   setters: {
     setServiceName: (value: string) => void;
@@ -364,6 +378,7 @@ function CatalogServices({
     setServicePrice: (value: number) => void;
     setServiceActive: (value: boolean) => void;
     setServiceOrder: (value: number) => void;
+    setServiceImageUrl: (value: string) => void;
   };
   onEdit: (id: string) => void;
   onReset: () => void;
@@ -375,10 +390,13 @@ function CatalogServices({
       <div className="space-y-4 p-4">
         <div className="grid gap-2">
           {services.map((service) => (
-            <button className="rounded-xl bg-white/[0.03] p-3 text-left text-sm hover:bg-white/[0.07]" key={service.id} onClick={() => onEdit(service.id)} type="button">
-              <span className="block font-medium">{service.name}</span>
-              <span className="text-xs text-smoke/55">
-                {money(service.price_cents)} · {service.duration_min}+{service.buffer_min} min · {service.active ? "activo" : "inactivo"}
+            <button className="grid grid-cols-[56px_1fr] gap-3 rounded-xl bg-white/[0.03] p-3 text-left text-sm hover:bg-white/[0.07]" key={service.id} onClick={() => onEdit(service.id)} type="button">
+              <Thumb imageUrl={service.image_url} label={service.name} />
+              <span>
+                <span className="block font-medium">{service.name}</span>
+                <span className="text-xs text-smoke/55">
+                  {money(service.price_cents)} · {service.duration_min}+{service.buffer_min} min · {service.active ? "activo" : "inactivo"}
+                </span>
               </span>
             </button>
           ))}
@@ -386,6 +404,7 @@ function CatalogServices({
         <form className="space-y-3 border-t border-white/10 pt-4" onSubmit={onSubmit}>
           <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre del servicio" value={form.serviceName} onChange={(event) => setters.setServiceName(event.target.value)} required />
           <textarea className="min-h-16 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Descripcion" value={form.serviceDescription} onChange={(event) => setters.setServiceDescription(event.target.value)} />
+          <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="URL de foto del servicio" value={form.serviceImageUrl} onChange={(event) => setters.setServiceImageUrl(event.target.value)} />
           <div className="grid grid-cols-2 gap-3">
             <NumberInput value={form.serviceDuration} min={15} max={360} onChange={setters.setServiceDuration} />
             <NumberInput value={form.serviceBuffer} min={0} max={120} onChange={setters.setServiceBuffer} />
@@ -423,12 +442,16 @@ function CatalogBarbers({
     catalogBarberBio: string;
     catalogBarberSpecialties: string;
     catalogBarberActive: boolean;
+    catalogBarberAvatarUrl: string;
+    catalogBarberGalleryUrls: string;
   };
   setters: {
     setCatalogBarberName: (value: string) => void;
     setCatalogBarberBio: (value: string) => void;
     setCatalogBarberSpecialties: (value: string) => void;
     setCatalogBarberActive: (value: boolean) => void;
+    setCatalogBarberAvatarUrl: (value: string) => void;
+    setCatalogBarberGalleryUrls: (value: string) => void;
   };
   onEdit: (id: string) => void;
   onReset: () => void;
@@ -440,15 +463,20 @@ function CatalogBarbers({
       <div className="space-y-4 p-4">
         <div className="grid gap-2">
           {barbers.map((barber) => (
-            <button className="rounded-xl bg-white/[0.03] p-3 text-left text-sm hover:bg-white/[0.07]" key={barber.id} onClick={() => onEdit(barber.id)} type="button">
-              <span className="block font-medium">{barber.display_name}</span>
-              <span className="text-xs text-smoke/55">{barber.specialties.join(", ") || "Sin especialidades"} · {barber.is_active ? "activo" : "inactivo"}</span>
+            <button className="grid grid-cols-[56px_1fr] gap-3 rounded-xl bg-white/[0.03] p-3 text-left text-sm hover:bg-white/[0.07]" key={barber.id} onClick={() => onEdit(barber.id)} type="button">
+              <Thumb imageUrl={barber.avatar_url || barber.gallery_urls?.[0]} label={barber.display_name} />
+              <span>
+                <span className="block font-medium">{barber.display_name}</span>
+                <span className="text-xs text-smoke/55">{barber.specialties.join(", ") || "Sin especialidades"} · {barber.is_active ? "activo" : "inactivo"}</span>
+              </span>
             </button>
           ))}
         </div>
         <form className="space-y-3 border-t border-white/10 pt-4" onSubmit={onSubmit}>
           <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre publico" value={form.catalogBarberName} onChange={(event) => setters.setCatalogBarberName(event.target.value)} required />
           <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Especialidades separadas por coma" value={form.catalogBarberSpecialties} onChange={(event) => setters.setCatalogBarberSpecialties(event.target.value)} />
+          <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="URL foto principal" value={form.catalogBarberAvatarUrl} onChange={(event) => setters.setCatalogBarberAvatarUrl(event.target.value)} />
+          <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="URLs de trabajos separadas por coma" value={form.catalogBarberGalleryUrls} onChange={(event) => setters.setCatalogBarberGalleryUrls(event.target.value)} />
           <textarea className="min-h-16 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Bio" value={form.catalogBarberBio} onChange={(event) => setters.setCatalogBarberBio(event.target.value)} />
           <label className="flex items-center gap-2 text-sm text-smoke/70">
             <input checked={form.catalogBarberActive} onChange={(event) => setters.setCatalogBarberActive(event.target.checked)} type="checkbox" />
@@ -531,14 +559,19 @@ function AccessSection({
         <div className="border-b border-white/10 bg-white/[0.04] px-4 py-3 font-medium">Usuarios</div>
         <div className="grid gap-2 p-4 md:grid-cols-2">
           {profiles.map((profile) => (
-            <div className="rounded-xl bg-white/[0.03] p-3 text-sm" key={profile.id}>
-              <p className="font-medium">{profile.full_name || profile.email || "Usuario"}</p>
-              <p className="mt-1 text-xs text-smoke/55">{(rolesByUser[profile.id] ?? ["sin rol"]).join(", ")}</p>
+            <div className="grid grid-cols-[48px_1fr] gap-3 rounded-xl bg-white/[0.03] p-3 text-sm" key={profile.id}>
+              <Thumb imageUrl={profile.avatar_url} label={profile.full_name || profile.email || "Usuario"} small />
+              <div>
+                <p className="font-medium">{profile.full_name || profile.email || "Usuario"}</p>
+                <p className="mt-1 text-xs text-smoke/55">{(rolesByUser[profile.id] ?? ["sin rol"]).join(", ")}</p>
+                {profile.description ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-smoke/55">{profile.description}</p> : null}
+                {profile.no_show_count ? <p className="mt-2 text-xs text-red-100/80">Inasistencias: {profile.no_show_count}</p> : null}
               {(rolesByUser[profile.id] ?? []).map((role) => (
                 <button className="mt-2 mr-2 rounded-lg bg-white/5 px-2 py-1 text-xs hover:bg-white/10" key={role} onClick={() => onRemoveRole(profile.id, role)} type="button">
                   Quitar {role}
                 </button>
               ))}
+              </div>
             </div>
           ))}
         </div>
@@ -607,6 +640,15 @@ function Summary({ title, value, detail }: { title: string; value: string; detai
       <p className="mt-3 text-3xl font-semibold">{value}</p>
       <p className="mt-2 text-sm text-smoke/60">{detail}</p>
     </article>
+  );
+}
+
+function Thumb({ imageUrl, label, small = false }: { imageUrl?: string | null; label: string; small?: boolean }) {
+  const size = small ? "h-12 w-12" : "h-14 w-14";
+  return (
+    <span className={`grid ${size} shrink-0 place-items-center overflow-hidden rounded-xl border border-white/10 bg-black/30`}>
+      {imageUrl ? <img className="h-full w-full object-cover" src={imageUrl} alt={label} loading="lazy" /> : <ImageIcon className="h-4 w-4 text-white/40" />}
+    </span>
   );
 }
 

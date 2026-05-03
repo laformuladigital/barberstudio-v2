@@ -23,6 +23,7 @@ export type AppointmentRow = {
   notes: string | null;
   services?: Pick<Service, "name" | "duration_min" | "price_cents"> | null;
   barbers?: Pick<Barber, "display_name"> | null;
+  client?: Pick<ProfileRow, "email" | "full_name" | "phone" | "avatar_url" | "description" | "no_show_count"> | null;
 };
 
 export type ScheduleBlockRow = {
@@ -42,6 +43,8 @@ export type ProfileRow = {
   full_name: string | null;
   phone: string | null;
   avatar_url: string | null;
+  description: string | null;
+  no_show_count: number;
   created_at: string;
 };
 
@@ -57,9 +60,9 @@ function raise(error: { message: string } | null) {
 export async function listServices() {
   const { data, error } = await supabase
     .from("services")
-    .select("id,name,description,duration_min,buffer_min,price_cents,active,order_index")
+    .select("id,name,description,duration_min,buffer_min,price_cents,active,order_index,image_url")
     .eq("active", true)
-    .order("order_index", { ascending: true });
+    .order("name", { ascending: true });
 
   raise(error);
   return (data ?? []) as Service[];
@@ -68,8 +71,8 @@ export async function listServices() {
 export async function listAdminServices() {
   const { data, error } = await supabase
     .from("services")
-    .select("id,name,description,duration_min,buffer_min,price_cents,active,order_index")
-    .order("order_index", { ascending: true });
+    .select("id,name,description,duration_min,buffer_min,price_cents,active,order_index,image_url")
+    .order("name", { ascending: true });
 
   raise(error);
   return (data ?? []) as Service[];
@@ -78,7 +81,7 @@ export async function listAdminServices() {
 export async function listBarbers() {
   const { data, error } = await supabase
     .from("barbers")
-    .select("id,display_name,bio,specialties,rating,is_active")
+    .select("id,user_id,display_name,bio,specialties,rating,is_active,avatar_url,gallery_urls")
     .eq("is_active", true)
     .order("display_name", { ascending: true });
 
@@ -89,7 +92,7 @@ export async function listBarbers() {
 export async function listAdminBarbers() {
   const { data, error } = await supabase
     .from("barbers")
-    .select("id,user_id,display_name,bio,specialties,rating,is_active")
+    .select("id,user_id,display_name,bio,specialties,rating,is_active,avatar_url,gallery_urls")
     .order("display_name", { ascending: true });
 
   raise(error);
@@ -135,7 +138,7 @@ export async function bookAppointment(input: {
 export async function listAppointments(scope: "client" | "barber" | "admin", localDate?: string) {
   let query = supabase
     .from("appointments")
-    .select("id,client_id,barber_id,service_id,guest_name,guest_phone,guest_email,starts_at,ends_at,local_date,status,notes,services(name,duration_min,price_cents),barbers(display_name)")
+    .select("id,client_id,barber_id,service_id,guest_name,guest_phone,guest_email,starts_at,ends_at,local_date,status,notes,services(name,duration_min,price_cents),barbers(display_name),client:profiles!appointments_client_id_fkey(email,full_name,phone,avatar_url,description,no_show_count)")
     .order("starts_at", { ascending: true });
 
   if (localDate) query = query.eq("local_date", localDate);
@@ -207,8 +210,9 @@ export async function rejectScheduleBlock(id: string, reason?: string) {
 export async function listProfiles() {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,email,full_name,phone,avatar_url,created_at")
-    .order("created_at", { ascending: false })
+    .select("id,email,full_name,phone,avatar_url,description,no_show_count,created_at")
+    .order("full_name", { ascending: true, nullsFirst: false })
+    .order("email", { ascending: true, nullsFirst: false })
     .limit(200);
 
   raise(error);
@@ -218,7 +222,7 @@ export async function listProfiles() {
 export async function getMyProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,email,full_name,phone,avatar_url,created_at")
+    .select("id,email,full_name,phone,avatar_url,description,no_show_count,created_at")
     .eq("id", userId)
     .single();
 
@@ -226,12 +230,13 @@ export async function getMyProfile(userId: string) {
   return data as ProfileRow;
 }
 
-export async function updateMyProfile(input: { userId: string; fullName: string; phone: string; avatarUrl?: string | null }) {
+export async function updateMyProfile(input: { userId: string; fullName: string; phone: string; description?: string; avatarUrl?: string | null }) {
   const { error } = await supabase
     .from("profiles")
     .update({
       full_name: input.fullName.trim() || null,
       phone: input.phone.trim() || null,
+      description: input.description?.trim() || null,
       avatar_url: input.avatarUrl ?? null,
       updated_at: new Date().toISOString(),
     })
@@ -240,25 +245,68 @@ export async function updateMyProfile(input: { userId: string; fullName: string;
   raise(error);
 }
 
-export async function uploadAvatar(userId: string, file: File) {
+async function uploadPublicImage(bucket: "avatars" | "barber-media" | "service-media", userId: string, file: File, prefix: string, maxMb = 2) {
   if (!file.type.startsWith("image/")) {
     throw new Error("La foto debe ser una imagen.");
   }
 
-  if (file.size > 1024 * 1024) {
-    throw new Error("La foto debe pesar maximo 1 MB.");
+  if (file.size > maxMb * 1024 * 1024) {
+    throw new Error(`La foto debe pesar maximo ${maxMb} MB.`);
   }
 
   const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${userId}/avatar-${Date.now()}.${extension}`;
-  const { error } = await supabase.storage.from("avatars").upload(path, file, {
+  const path = `${userId}/${prefix}-${Date.now()}.${extension}`;
+  const { error } = await supabase.storage.from(bucket).upload(path, file, {
     cacheControl: "3600",
     upsert: false,
   });
 
   raise(error);
-  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
+}
+
+export async function uploadAvatar(userId: string, file: File) {
+  return uploadPublicImage("avatars", userId, file, "avatar", 1);
+}
+
+export async function uploadBarberMedia(userId: string, file: File) {
+  return uploadPublicImage("barber-media", userId, file, "cut", 2);
+}
+
+export async function uploadServiceImage(userId: string, file: File) {
+  return uploadPublicImage("service-media", userId, file, "service", 2);
+}
+
+export async function getMyBarberProfile(userId: string) {
+  const { data, error } = await supabase
+    .from("barbers")
+    .select("id,user_id,display_name,bio,specialties,rating,is_active,avatar_url,gallery_urls")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  raise(error);
+  return data as Barber | null;
+}
+
+export async function updateMyBarberProfile(input: {
+  barberId: string;
+  displayName: string;
+  bio?: string | null;
+  specialties: string[];
+  avatarUrl?: string | null;
+  galleryUrls: string[];
+}) {
+  const { error } = await supabase.rpc("update_my_barber_profile", {
+    p_barber_id: input.barberId,
+    p_display_name: input.displayName,
+    p_bio: input.bio ?? null,
+    p_specialties: input.specialties,
+    p_avatar_url: input.avatarUrl ?? null,
+    p_gallery_urls: input.galleryUrls,
+  });
+
+  raise(error);
 }
 
 export async function listUserRoles() {
@@ -297,6 +345,7 @@ export async function upsertService(input: {
   priceCents: number;
   active: boolean;
   orderIndex: number;
+  imageUrl?: string | null;
 }) {
   const { error } = await supabase.rpc("admin_upsert_service", {
     p_service_id: input.serviceId ?? null,
@@ -307,6 +356,7 @@ export async function upsertService(input: {
     p_price_cents: input.priceCents,
     p_active: input.active,
     p_order_index: input.orderIndex,
+    p_image_url: input.imageUrl ?? null,
   });
   raise(error);
 }
@@ -317,6 +367,8 @@ export async function upsertBarber(input: {
   bio?: string | null;
   specialties: string[];
   active: boolean;
+  avatarUrl?: string | null;
+  galleryUrls?: string[];
 }) {
   const { error } = await supabase.rpc("admin_upsert_barber", {
     p_barber_id: input.barberId ?? null,
@@ -324,6 +376,8 @@ export async function upsertBarber(input: {
     p_bio: input.bio ?? null,
     p_specialties: input.specialties,
     p_is_active: input.active,
+    p_avatar_url: input.avatarUrl ?? null,
+    p_gallery_urls: input.galleryUrls ?? [],
   });
   raise(error);
 }

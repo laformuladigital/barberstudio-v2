@@ -13,6 +13,7 @@ export type Service = {
   price_cents: number;
   active: boolean;
   order_index: number;
+  image_url: string | null;
 };
 
 export type Barber = {
@@ -24,4 +25,6 @@ export type Barber = {
   specialties: string[];
   rating: number;
   is_active: boolean;
+  avatar_url: string | null;
+  gallery_urls: string[];
 };

@@ -11,6 +11,7 @@ export default function ClientPage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [description, setDescription] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -29,6 +30,7 @@ export default function ClientPage() {
       setProfile(nextProfile);
       setFullName(nextProfile?.full_name ?? "");
       setPhone(nextProfile?.phone ?? "");
+      setDescription(nextProfile?.description ?? "");
       setAvatarUrl(nextProfile?.avatar_url ?? null);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "No pudimos cargar tus citas.");
@@ -72,7 +74,7 @@ export default function ClientPage() {
     try {
       const nextAvatarUrl = await uploadAvatar(user.id, file);
       setAvatarUrl(nextAvatarUrl);
-      await updateMyProfile({ userId: user.id, fullName, phone, avatarUrl: nextAvatarUrl });
+      await updateMyProfile({ userId: user.id, fullName, phone, description, avatarUrl: nextAvatarUrl });
       setProfileMessage("Foto actualizada.");
       await load();
     } catch (nextError) {
@@ -91,7 +93,7 @@ export default function ClientPage() {
     setError(null);
     setProfileMessage(null);
     try {
-      await updateMyProfile({ userId: user.id, fullName, phone, avatarUrl });
+      await updateMyProfile({ userId: user.id, fullName, phone, description, avatarUrl });
       setProfileMessage("Perfil actualizado.");
       await load();
     } catch (nextError) {
@@ -144,6 +146,15 @@ export default function ClientPage() {
             <span>Email</span>
             <input className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-smoke/55" value={profile?.email ?? user?.email ?? ""} disabled />
           </label>
+          <label className="space-y-2 text-sm text-smoke/65">
+            <span>Descripcion / preferencias</span>
+            <textarea className="min-h-24 w-full rounded-xl border border-white/10 bg-ink px-3 py-3 text-smoke" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ej: corte favorito, estilo, alergias o notas para tu barbero" />
+          </label>
+          {profile?.no_show_count ? (
+            <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-smoke/70">
+              Inasistencias registradas: {profile.no_show_count}. Si no puedes asistir, cancela con minimo 2 horas.
+            </p>
+          ) : null}
           <button className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-medium text-ink disabled:opacity-60" type="submit" disabled={savingProfile || !user}>
             <Save className="h-4 w-4" />
             {savingProfile ? "Guardando..." : "Guardar perfil"}
@@ -162,10 +173,12 @@ export default function ClientPage() {
               </p>
               <p className="mt-2 text-xs uppercase tracking-[0.2em] text-gold">{appointment.status}</p>
             </div>
-            {appointment.status === "pending" || appointment.status === "confirmed" ? (
+            {(appointment.status === "pending" || appointment.status === "confirmed") && canCancel(appointment.starts_at) ? (
               <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-2 text-sm hover:bg-white/10" type="button" onClick={() => void handleCancel(appointment.id)}>
                 <XCircle className="h-4 w-4" /> Cancelar
               </button>
+            ) : appointment.status === "pending" || appointment.status === "confirmed" ? (
+              <span className="rounded-xl bg-white/[0.04] px-4 py-2 text-center text-sm text-smoke/55">Cancelacion cerrada</span>
             ) : null}
           </article>
         ))}
@@ -173,4 +186,8 @@ export default function ClientPage() {
       </section>
     </main>
   );
+}
+
+function canCancel(startsAt: string) {
+  return new Date(startsAt).getTime() - Date.now() > 2 * 60 * 60 * 1000;
 }
