@@ -27,6 +27,17 @@
 - SSL con Certbot reaplicado automaticamente en deploy.
 - Home cinematografico dark/silver/glass.
 - Logo BarberStudio actualizado en Home, header y favicon.
+- Reserva inmersiva por pasos con politica obligatoria antes de confirmar.
+- Perfiles de barbero con foto principal y galeria de trabajos.
+- Perfil cliente con descripcion/preferencias e inasistencias.
+- Penalizacion simple por no-show.
+- Admin compacto con horarios filtrables por barbero y dia.
+
+## Memoria de continuidad
+
+Para continuar el proyecto despues de compactar contexto, usar:
+
+- `docs/PROJECT_MEMORY_2026-05-04.md`
 
 ## Seguridad
 

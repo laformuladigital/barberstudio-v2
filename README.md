@@ -64,3 +64,12 @@ Para cambios de textos del Home:
 Para login:
 
 - `apps/web/src/features/auth/LoginPage.tsx`
+
+## Memoria de continuidad
+
+Antes de compactar un chat o pasar el proyecto a otra persona, revisar:
+
+- `docs/PROJECT_MEMORY_2026-05-04.md`
+- `docs/production-handoff.md`
+- `docs/deploy.md`
+- `docs/architecture.md`
