@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Blocks, CalendarDays, Check, ImageIcon, RefreshCw, Scissors, Settings2, ShieldCheck, Users, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { Blocks, CalendarDays, Check, ImageIcon, Paperclip, RefreshCw, Scissors, Settings2, ShieldCheck, Users, X } from "lucide-react";
+import { useSessionContext } from "../../app/providers/SessionProvider";
 import {
   approveScheduleBlock,
   cancelAppointment,
@@ -17,6 +18,8 @@ import {
   upsertAvailabilityRule,
   upsertBarber,
   upsertService,
+  uploadBarberMedia,
+  uploadServiceImage,
   type AvailabilityRuleRow,
   type AppointmentRow,
   type ProfileRow,
@@ -39,6 +42,7 @@ const sections: Array<{ id: AdminSection; label: string; icon: typeof CalendarDa
 ];
 
 export default function AdminPage() {
+  const { user } = useSessionContext();
   const [section, setSection] = useState<AdminSection>("operacion");
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [blocks, setBlocks] = useState<ScheduleBlockRow[]>([]);
@@ -76,6 +80,7 @@ export default function AdminPage() {
   const [ruleEndTime, setRuleEndTime] = useState("19:00");
   const [ruleInterval, setRuleInterval] = useState(30);
   const [ruleActive, setRuleActive] = useState(true);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const revenue = useMemo(
@@ -280,6 +285,38 @@ export default function AdminPage() {
     resetRuleForm();
   }
 
+  async function handleServiceImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+    setUploadingMedia(true);
+    setError(null);
+    try {
+      const url = await uploadServiceImage(user.id, file);
+      setServiceImageUrl(url);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "No pudimos subir la foto del servicio.");
+    } finally {
+      setUploadingMedia(false);
+      event.target.value = "";
+    }
+  }
+
+  async function handleBarberAvatarUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+    setUploadingMedia(true);
+    setError(null);
+    try {
+      const url = await uploadBarberMedia(user.id, file);
+      setCatalogBarberAvatarUrl(url);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "No pudimos subir la foto del barbero.");
+    } finally {
+      setUploadingMedia(false);
+      event.target.value = "";
+    }
+  }
+
   return (
     <main className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -331,17 +368,21 @@ export default function AdminPage() {
             services={services}
             form={{ catalogServiceId, serviceName, serviceDescription, serviceDuration, serviceBuffer, servicePrice, serviceActive, serviceOrder, serviceImageUrl }}
             setters={{ setServiceName, setServiceDescription, setServiceDuration, setServiceBuffer, setServicePrice, setServiceActive, setServiceOrder, setServiceImageUrl }}
+            uploadingMedia={uploadingMedia}
             onEdit={loadServiceForEdit}
             onReset={resetServiceForm}
             onSubmit={handleSaveService}
+            onUploadImage={handleServiceImageUpload}
           />
           <CatalogBarbers
             barbers={barbers}
             form={{ catalogBarberId, catalogBarberName, catalogBarberBio, catalogBarberSpecialties, catalogBarberActive, catalogBarberAvatarUrl, catalogBarberGalleryUrls }}
             setters={{ setCatalogBarberName, setCatalogBarberBio, setCatalogBarberSpecialties, setCatalogBarberActive, setCatalogBarberAvatarUrl, setCatalogBarberGalleryUrls }}
+            uploadingMedia={uploadingMedia}
             onEdit={loadBarberForEdit}
             onReset={resetBarberForm}
             onSubmit={handleSaveBarber}
+            onUploadAvatar={handleBarberAvatarUpload}
           />
         </section>
       ) : null}
@@ -419,9 +460,11 @@ function CatalogServices({
   services,
   form,
   setters,
+  uploadingMedia,
   onEdit,
   onReset,
   onSubmit,
+  onUploadImage,
 }: {
   services: Service[];
   form: {
@@ -445,9 +488,11 @@ function CatalogServices({
     setServiceOrder: (value: number) => void;
     setServiceImageUrl: (value: string) => void;
   };
+  uploadingMedia: boolean;
   onEdit: (id: string) => void;
   onReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onUploadImage: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10">
@@ -469,7 +514,14 @@ function CatalogServices({
         <form className="space-y-3 border-t border-white/10 pt-4" onSubmit={onSubmit}>
           <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre del servicio" value={form.serviceName} onChange={(event) => setters.setServiceName(event.target.value)} required />
           <textarea className="min-h-16 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Descripcion" value={form.serviceDescription} onChange={(event) => setters.setServiceDescription(event.target.value)} />
-          <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="URL de foto del servicio" value={form.serviceImageUrl} onChange={(event) => setters.setServiceImageUrl(event.target.value)} />
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="URL de foto del servicio" value={form.serviceImageUrl} onChange={(event) => setters.setServiceImageUrl(event.target.value)} />
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-3 text-sm hover:bg-white/10">
+              <Paperclip className="h-4 w-4" />
+              {uploadingMedia ? "Subiendo..." : "Adjuntar foto"}
+              <input className="sr-only" accept="image/png,image/jpeg,image/webp,image/gif" type="file" onChange={onUploadImage} disabled={uploadingMedia} />
+            </label>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <NumberInput label="Duracion del servicio (min)" value={form.serviceDuration} min={15} max={360} onChange={setters.setServiceDuration} />
             <NumberInput label="Buffer entre citas (min)" value={form.serviceBuffer} min={0} max={120} onChange={setters.setServiceBuffer} />
@@ -496,9 +548,11 @@ function CatalogBarbers({
   barbers,
   form,
   setters,
+  uploadingMedia,
   onEdit,
   onReset,
   onSubmit,
+  onUploadAvatar,
 }: {
   barbers: Barber[];
   form: {
@@ -518,9 +572,11 @@ function CatalogBarbers({
     setCatalogBarberAvatarUrl: (value: string) => void;
     setCatalogBarberGalleryUrls: (value: string) => void;
   };
+  uploadingMedia: boolean;
   onEdit: (id: string) => void;
   onReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onUploadAvatar: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10">
@@ -540,7 +596,14 @@ function CatalogBarbers({
         <form className="space-y-3 border-t border-white/10 pt-4" onSubmit={onSubmit}>
           <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre publico" value={form.catalogBarberName} onChange={(event) => setters.setCatalogBarberName(event.target.value)} required />
           <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Especialidades separadas por coma" value={form.catalogBarberSpecialties} onChange={(event) => setters.setCatalogBarberSpecialties(event.target.value)} />
-          <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="URL foto principal" value={form.catalogBarberAvatarUrl} onChange={(event) => setters.setCatalogBarberAvatarUrl(event.target.value)} />
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="URL foto principal" value={form.catalogBarberAvatarUrl} onChange={(event) => setters.setCatalogBarberAvatarUrl(event.target.value)} />
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-3 text-sm hover:bg-white/10">
+              <Paperclip className="h-4 w-4" />
+              {uploadingMedia ? "Subiendo..." : "Adjuntar foto"}
+              <input className="sr-only" accept="image/png,image/jpeg,image/webp,image/gif" type="file" onChange={onUploadAvatar} disabled={uploadingMedia} />
+            </label>
+          </div>
           <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="URLs de trabajos separadas por coma" value={form.catalogBarberGalleryUrls} onChange={(event) => setters.setCatalogBarberGalleryUrls(event.target.value)} />
           <textarea className="min-h-16 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Bio" value={form.catalogBarberBio} onChange={(event) => setters.setCatalogBarberBio(event.target.value)} />
           <label className="flex items-center gap-2 text-sm text-smoke/70">

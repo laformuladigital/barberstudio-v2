@@ -230,3 +230,23 @@ Prioridad baja:
 
 El repo debe quedar limpio con `git status --short` vacio despues de guardar este documento.
 
+## Actualizacion 2026-05-13
+
+Auditoria y mejoras practicas:
+
+- `/reservar` ahora avanza por pantalla completa en 4 etapas: servicio, barbero, horario y datos.
+- `/barbero` ahora incluye gestion de horarios propios ademas de perfil, foto principal y galeria.
+- Se agrego RPC incremental `upsert_my_availability_rule` en `supabase/migrations/019_barber_self_availability.sql`.
+- `/admin` conserva el panel compacto y agrega botones de adjuntar foto para servicios y barberos.
+- Nueva documentacion: `docs/barber-self-service-and-booking-pipeline.md`.
+
+Validacion local realizada:
+
+- `npm run lint`
+- `npm run build`
+- Playwright screenshot de `/reservar` mobile y `/admin` protegido.
+
+Importante para deploy:
+
+- Aplicar `019_barber_self_availability.sql` en Supabase antes de desplegar frontend a produccion.
+

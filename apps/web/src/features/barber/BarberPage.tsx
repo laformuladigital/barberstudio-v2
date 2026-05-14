@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { Ban, Camera, Check, Clock, Plus, Save, Scissors, X } from "lucide-react";
+import { Ban, CalendarDays, Camera, Check, Clock, Plus, Save, Scissors, X } from "lucide-react";
 import { useSessionContext } from "../../app/providers/SessionProvider";
 import {
   completeAppointment,
   confirmAppointment,
   getMyBarberProfile,
+  listAvailabilityRules,
   listAppointments,
   listBarbers,
   markNoShow,
   requestScheduleBlock,
   updateMyBarberProfile,
+  upsertMyAvailabilityRule,
   uploadBarberMedia,
+  type AvailabilityRuleRow,
   type AppointmentRow,
 } from "../../lib/bookingApi";
 import { formatTime, todayISO } from "../../lib/formatters";
@@ -21,6 +24,7 @@ export default function BarberPage() {
   const { user } = useSessionContext();
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [rules, setRules] = useState<AvailabilityRuleRow[]>([]);
   const [myBarber, setMyBarber] = useState<Barber | null>(null);
   const [localDate, setLocalDate] = useState(todayISO());
   const [barberId, setBarberId] = useState("");
@@ -32,19 +36,27 @@ export default function BarberPage() {
   const [blockStart, setBlockStart] = useState("13:00");
   const [blockEnd, setBlockEnd] = useState("14:00");
   const [blockReason, setBlockReason] = useState("");
+  const [ruleId, setRuleId] = useState("");
+  const [ruleDayOfWeek, setRuleDayOfWeek] = useState(1);
+  const [ruleStartTime, setRuleStartTime] = useState("09:00");
+  const [ruleEndTime, setRuleEndTime] = useState("19:00");
+  const [ruleInterval, setRuleInterval] = useState(30);
+  const [ruleActive, setRuleActive] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [nextAppointments, nextBarbers, nextMyBarber] = await Promise.all([
+      const [nextAppointments, nextBarbers, nextRules, nextMyBarber] = await Promise.all([
         listAppointments("barber", localDate),
         listBarbers(),
+        listAvailabilityRules(),
         user ? getMyBarberProfile(user.id) : Promise.resolve(null),
       ]);
       setAppointments(nextAppointments);
       setBarbers(nextBarbers);
+      setRules(nextRules);
       setMyBarber(nextMyBarber);
       setBarberId((current) => nextMyBarber?.id || current || nextBarbers[0]?.id || "");
       if (nextMyBarber) {
@@ -68,6 +80,7 @@ export default function BarberPage() {
       .channel(`barber-agenda:${localDate}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "appointments" }, () => void load())
       .on("postgres_changes", { event: "*", schema: "public", table: "schedule_blocks" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "availability_rules" }, () => void load())
       .subscribe();
 
     return () => {
@@ -158,6 +171,47 @@ export default function BarberPage() {
     );
   }
 
+  function loadRuleForEdit(nextRuleId: string) {
+    const rule = rules.find((item) => item.id === nextRuleId && item.barber_id === myBarber?.id);
+    if (!rule) return;
+    setRuleId(rule.id);
+    setRuleDayOfWeek(rule.day_of_week);
+    setRuleStartTime(rule.start_time.slice(0, 5));
+    setRuleEndTime(rule.end_time.slice(0, 5));
+    setRuleInterval(rule.slot_interval_min);
+    setRuleActive(rule.is_active);
+  }
+
+  function resetRuleForm() {
+    setRuleId("");
+    setRuleDayOfWeek(1);
+    setRuleStartTime("09:00");
+    setRuleEndTime("19:00");
+    setRuleInterval(30);
+    setRuleActive(true);
+  }
+
+  async function handleRuleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setMessage(null);
+    try {
+      await upsertMyAvailabilityRule({
+        ruleId: ruleId || null,
+        dayOfWeek: ruleDayOfWeek,
+        startTime: ruleStartTime,
+        endTime: ruleEndTime,
+        slotIntervalMin: ruleInterval,
+        active: ruleActive,
+      });
+      setMessage(ruleId ? "Horario actualizado." : "Horario creado.");
+      resetRuleForm();
+      await load();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "No pudimos guardar el horario.");
+    }
+  }
+
   return (
     <main className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -171,7 +225,7 @@ export default function BarberPage() {
       {error ? <p className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">{error}</p> : null}
       {message ? <p className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">{message}</p> : null}
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
+      <section className="grid gap-4 lg:grid-cols-[1fr_390px]">
         <div className="overflow-hidden rounded-2xl border border-white/10">
           {appointments.map((appointment) => (
             <article className="grid gap-4 border-b border-white/10 bg-white/[0.03] p-4 last:border-b-0 md:grid-cols-[1fr_auto]" key={appointment.id}>
@@ -214,7 +268,7 @@ export default function BarberPage() {
                 </div>
                 <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-3 text-sm hover:bg-white/10">
                   <Camera className="h-4 w-4" />
-                  Cambiar foto
+                  Adjuntar foto principal
                   <input className="sr-only" accept="image/png,image/jpeg,image/webp,image/gif" type="file" onChange={(event) => void handleMediaUpload(event, "avatar")} disabled={savingProfile} />
                 </label>
                 <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre publico del barbero" value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
@@ -227,8 +281,9 @@ export default function BarberPage() {
                       <span className="absolute right-1 top-1 rounded-full bg-black/70 p-1"><X className="h-3 w-3" /></span>
                     </button>
                   ))}
-                  <label className="grid aspect-square cursor-pointer place-items-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] hover:bg-white/[0.07]">
+                  <label className="grid aspect-square cursor-pointer place-items-center rounded-xl border border-dashed border-white/20 bg-white/[0.03] text-xs text-smoke/65 hover:bg-white/[0.07]">
                     <Plus className="h-5 w-5" />
+                    Adjuntar
                     <input className="sr-only" accept="image/png,image/jpeg,image/webp,image/gif" type="file" onChange={(event) => void handleMediaUpload(event, "gallery")} disabled={savingProfile} />
                   </label>
                 </div>
@@ -241,19 +296,83 @@ export default function BarberPage() {
             )}
           </form>
 
+          <form className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.04] p-5" onSubmit={(event) => void handleRuleSubmit(event)}>
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-gold" />
+              <h2 className="font-medium">Mis horarios</h2>
+            </div>
+            <p className="text-sm leading-6 text-smoke/55">Define los dias y horas donde aceptas reservas. Estos cupos alimentan la agenda publica.</p>
+            {myBarber ? (
+              <>
+                <div className="grid gap-2">
+                  {rules
+                    .filter((rule) => rule.barber_id === myBarber.id)
+                    .map((rule) => (
+                      <button className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-xl bg-white/[0.035] p-3 text-left text-sm hover:bg-white/[0.07]" key={rule.id} type="button" onClick={() => loadRuleForEdit(rule.id)}>
+                        <span>
+                          <span className="block font-medium">{dayNames[rule.day_of_week]}</span>
+                          <span className="text-xs text-smoke/55">
+                            {rule.start_time.slice(0, 5)} - {rule.end_time.slice(0, 5)} · cada {rule.slot_interval_min} min
+                          </span>
+                        </span>
+                        <span className={`rounded-full px-3 py-1 text-xs ${rule.is_active ? "bg-emerald-400/10 text-emerald-100" : "bg-white/5 text-smoke/50"}`}>
+                          {rule.is_active ? "Activo" : "Pausado"}
+                        </span>
+                      </button>
+                    ))}
+                  {!rules.filter((rule) => rule.barber_id === myBarber.id).length ? <p className="rounded-xl bg-white/[0.03] p-3 text-sm text-smoke/60">Aun no tienes horarios propios.</p> : null}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="space-y-2 text-sm text-smoke/65">
+                    <span>Dia de trabajo</span>
+                    <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" value={ruleDayOfWeek} onChange={(event) => setRuleDayOfWeek(Number(event.target.value))}>
+                      {dayNames.map((day, index) => (
+                        <option key={day} value={index}>{day}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-2 text-sm text-smoke/65">
+                    <span>Intervalo entre citas</span>
+                    <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" min={5} max={120} type="number" value={ruleInterval} onChange={(event) => setRuleInterval(Number(event.target.value))} />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="space-y-2 text-sm text-smoke/65">
+                    <span>Hora de inicio</span>
+                    <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" type="time" value={ruleStartTime} onChange={(event) => setRuleStartTime(event.target.value)} required />
+                  </label>
+                  <label className="space-y-2 text-sm text-smoke/65">
+                    <span>Hora de cierre</span>
+                    <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" type="time" value={ruleEndTime} onChange={(event) => setRuleEndTime(event.target.value)} required />
+                  </label>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-smoke/70">
+                  <input checked={ruleActive} onChange={(event) => setRuleActive(event.target.checked)} type="checkbox" />
+                  Activo para recibir reservas
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button className="rounded-xl bg-gold px-4 py-3 font-medium text-ink" type="submit">{ruleId ? "Actualizar" : "Crear"} horario</button>
+                  <button className="rounded-xl bg-white/5 px-4 py-3 font-medium hover:bg-white/10" onClick={resetRuleForm} type="button">Limpiar</button>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm leading-6 text-smoke/60">Cuando un admin vincule tu cuenta a un barbero, podras configurar tus horarios aqui.</p>
+            )}
+          </form>
+
           <form
             className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.04] p-5"
             onSubmit={(event) => {
               event.preventDefault();
-              void run(() => requestScheduleBlock({ barberId, localDate, startTime: blockStart, endTime: blockEnd, reason: blockReason }));
+              void run(() => requestScheduleBlock({ barberId: myBarber?.id || barberId, localDate, startTime: blockStart, endTime: blockEnd, reason: blockReason }));
             }}
           >
             <div className="flex items-center gap-2">
               <Scissors className="h-4 w-4 text-gold" />
               <h2 className="font-medium">Solicitar bloqueo</h2>
             </div>
-            <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" value={barberId} onChange={(event) => setBarberId(event.target.value)} required>
-              {barbers.map((barber) => (
+            <select className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" value={myBarber?.id || barberId} onChange={(event) => setBarberId(event.target.value)} required disabled={Boolean(myBarber)}>
+              {(myBarber ? [myBarber] : barbers).map((barber) => (
                 <option key={barber.id} value={barber.id}>{barber.display_name}</option>
               ))}
             </select>
@@ -269,6 +388,8 @@ export default function BarberPage() {
     </main>
   );
 }
+
+const dayNames = ["Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"];
 
 function splitList(value: string) {
   return value

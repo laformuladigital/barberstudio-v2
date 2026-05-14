@@ -208,6 +208,26 @@ export async function upsertAvailabilityRule(input: {
   raise(error);
 }
 
+export async function upsertMyAvailabilityRule(input: {
+  ruleId?: string | null;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotIntervalMin: number;
+  active: boolean;
+}) {
+  const { error } = await supabase.rpc("upsert_my_availability_rule", {
+    p_rule_id: input.ruleId ?? null,
+    p_day_of_week: input.dayOfWeek,
+    p_start_time: input.startTime,
+    p_end_time: input.endTime,
+    p_slot_interval_min: input.slotIntervalMin,
+    p_is_active: input.active,
+  });
+
+  raise(error);
+}
+
 export async function cancelAppointment(id: string, reason?: string) {
   const { error } = await supabase.rpc("cancel_appointment", { p_appointment_id: id, p_reason: reason ?? null });
   raise(error);

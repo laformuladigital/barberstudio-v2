@@ -1,5 +1,5 @@
-import { forwardRef, useEffect, useMemo, useRef, useState, type ForwardedRef, type ReactNode } from "react";
-import { CalendarDays, CheckCircle2, ImageIcon, Loader2, UserRound } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ArrowLeft, CalendarDays, CheckCircle2, ImageIcon, Loader2, UserRound } from "lucide-react";
 import {
   bookAppointment,
   getAvailableSlots,
@@ -11,10 +11,13 @@ import { formatTime, money, todayISO } from "../../lib/formatters";
 import { supabase } from "../../lib/supabase";
 import type { Barber, Service } from "../../lib/types";
 
+const steps = ["Servicio", "Barbero", "Horario", "Datos"];
+
 export default function BookingPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [stage, setStage] = useState(0);
   const [serviceId, setServiceId] = useState("");
   const [barberId, setBarberId] = useState("");
   const [localDate, setLocalDate] = useState(todayISO());
@@ -32,12 +35,6 @@ export default function BookingPage() {
 
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [serviceId, services]);
   const selectedBarber = useMemo(() => barbers.find((barber) => barber.id === barberId), [barberId, barbers]);
-  const directLink = "https://barberappstudio.com/reservar";
-  const serviceRef = useRef<HTMLElement | null>(null);
-  const barberRef = useRef<HTMLElement | null>(null);
-  const scheduleRef = useRef<HTMLElement | null>(null);
-  const dataRef = useRef<HTMLElement | null>(null);
-  const activeStep = slotTime ? 4 : barberId && serviceId ? 3 : serviceId ? 2 : 1;
 
   useEffect(() => {
     let mounted = true;
@@ -47,8 +44,6 @@ export default function BookingPage() {
         if (!mounted) return;
         setServices(nextServices);
         setBarbers(nextBarbers);
-        setServiceId(nextServices[0]?.id ?? "");
-        setBarberId(nextBarbers[0]?.id ?? "");
       })
       .catch((nextError: Error) => setError(nextError.message))
       .finally(() => {
@@ -125,40 +120,62 @@ export default function BookingPage() {
     }
   }
 
-  function moveTo(ref: React.RefObject<HTMLElement | null>) {
-    window.setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+  function goTo(nextStage: number) {
+    setStage(Math.max(0, Math.min(3, nextStage)));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function selectService(id: string) {
     setServiceId(id);
-    moveTo(barberRef);
+    setBarberId("");
+    setSlotTime("");
+    goTo(1);
   }
 
   function selectBarber(id: string) {
     setBarberId(id);
-    moveTo(scheduleRef);
+    setSlotTime("");
+    goTo(2);
   }
 
   function selectSlot(time: string) {
     setSlotTime(time);
-    moveTo(dataRef);
+    goTo(3);
   }
 
   return (
-    <main className="space-y-8">
-      <section className="grid gap-5 lg:grid-cols-[0.82fr_1.18fr] lg:items-end">
-        <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-white/55">Reservas</p>
-          <h1 className="mt-3 max-w-2xl text-4xl font-semibold leading-tight md:text-5xl">Reserva tu cita</h1>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-smoke/70">
-            Elige servicio, profesional y hora disponible. Cuando confirmas, ese espacio queda ocupado y sale de la agenda publica.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-sm text-smoke/70">
-          <p className="font-medium text-smoke">Link directo de reservas</p>
-          <a className="mt-2 block break-all text-white/80 hover:text-white" href="/reservar">
-            {directLink}
+    <main className="space-y-5">
+      <section className="glass-panel immersive-enter sticky top-2 z-20 space-y-3 rounded-2xl p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.28em] text-white/45">Reservas</p>
+            <h1 className="mt-1 text-2xl font-semibold md:text-3xl">Reserva tu cita</h1>
+          </div>
+          <a className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-smoke/70 hover:bg-white/10" href="/reservar">
+            Link directo
           </a>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-4">
+          {steps.map((label, index) => {
+            const enabled =
+              index === 0 ||
+              (index === 1 && Boolean(serviceId)) ||
+              (index === 2 && Boolean(serviceId && barberId)) ||
+              (index === 3 && Boolean(serviceId && barberId && slotTime));
+            return (
+              <button
+                className={`rounded-xl px-3 py-3 text-xs uppercase tracking-[0.18em] transition ${
+                  stage === index ? "bg-white text-ink" : enabled ? "bg-white/8 text-smoke hover:bg-white/12" : "bg-white/[0.03] text-smoke/35"
+                }`}
+                disabled={!enabled}
+                key={label}
+                type="button"
+                onClick={() => goTo(index)}
+              >
+                {index + 1}. {label}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -170,29 +187,13 @@ export default function BookingPage() {
         </p>
       ) : null}
 
-      <div className="glass-panel immersive-enter sticky top-2 z-20 grid gap-2 rounded-2xl p-2 sm:grid-cols-4">
-        {["Servicio", "Barbero", "Horario", "Datos"].map((label, index) => {
-          const step = index + 1;
-          return (
-            <button
-              className={`rounded-xl px-3 py-2 text-xs uppercase tracking-[0.18em] transition ${activeStep >= step ? "bg-white text-ink" : "bg-white/5 text-smoke/55"}`}
-              key={label}
-              type="button"
-              onClick={() => [serviceRef, barberRef, scheduleRef, dataRef][index].current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            >
-              {step}. {label}
-            </button>
-          );
-        })}
-      </div>
-
-      <form onSubmit={(event) => void handleSubmit(event)} className="grid gap-6 xl:grid-cols-[1fr_420px]">
-        <section className="space-y-6">
-          <Step ref={serviceRef} title="1. Servicio" detail="Ordenados A-Z con foto descriptiva.">
-            <div className="grid gap-3 md:grid-cols-2">
+      <form onSubmit={(event) => void handleSubmit(event)}>
+        {stage === 0 ? (
+          <FullscreenStep eyebrow="Paso 1" title="Elige el servicio" detail="Ordenado A-Z, con foto, precio y duracion clara.">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {services.map((service) => (
                 <button
-                  className={`liquid-card group overflow-hidden rounded-2xl border text-left ${serviceId === service.id ? "border-white/70 bg-white/[0.09]" : "border-white/10 bg-white/[0.035] hover:border-white/30"}`}
+                  className={`liquid-card group overflow-hidden rounded-2xl border text-left transition ${serviceId === service.id ? "border-white/70 bg-white/[0.09]" : "border-white/10 bg-white/[0.035] hover:border-white/30"}`}
                   key={service.id}
                   type="button"
                   onClick={() => selectService(service.id)}
@@ -204,18 +205,22 @@ export default function BookingPage() {
                       <p className="text-sm text-white/65">{money(service.price_cents)}</p>
                     </div>
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-smoke/60">{service.description || "Servicio BarberStudio"}</p>
-                    <p className="mt-3 text-xs uppercase tracking-[0.18em] text-white/45">{service.duration_min + service.buffer_min} min</p>
+                    <p className="mt-3 text-xs uppercase tracking-[0.18em] text-white/45">
+                      Duracion total: {service.duration_min + service.buffer_min} min
+                    </p>
                   </div>
                 </button>
               ))}
             </div>
-          </Step>
+          </FullscreenStep>
+        ) : null}
 
-          <Step ref={barberRef} title="2. Barbero" detail="Elige el profesional viendo su perfil y trabajos.">
-            <div className="grid gap-3 md:grid-cols-2">
+        {stage === 1 ? (
+          <FullscreenStep eyebrow="Paso 2" title="Elige tu barbero" detail={selectedService ? `Servicio seleccionado: ${selectedService.name}` : "Primero selecciona un servicio."}>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {barbers.map((barber) => (
                 <button
-                  className={`liquid-card overflow-hidden rounded-2xl border text-left ${barberId === barber.id ? "border-white/70 bg-white/[0.09]" : "border-white/10 bg-white/[0.035] hover:border-white/30"}`}
+                  className={`liquid-card overflow-hidden rounded-2xl border text-left transition ${barberId === barber.id ? "border-white/70 bg-white/[0.09]" : "border-white/10 bg-white/[0.035] hover:border-white/30"}`}
                   key={barber.id}
                   type="button"
                   onClick={() => selectBarber(barber.id)}
@@ -229,77 +234,101 @@ export default function BookingPage() {
                 </button>
               ))}
             </div>
-          </Step>
-        </section>
+            <StepActions onBack={() => goTo(0)} />
+          </FullscreenStep>
+        ) : null}
 
-        <aside className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.04] p-5 xl:sticky xl:top-4 xl:self-start">
-          <Step ref={scheduleRef} title="3. Horario" detail={selectedService && selectedBarber ? `${selectedService.name} con ${selectedBarber.display_name}` : "Selecciona servicio y barbero."}>
-            <label className="block space-y-2 text-sm">
-              <span className="text-smoke/70">Fecha</span>
-              <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" min={todayISO()} type="date" value={localDate} onChange={(event) => setLocalDate(event.target.value)} required />
-            </label>
-            {slotLoading ? (
-              <p className="inline-flex items-center gap-2 text-sm text-smoke/70">
-                <Loader2 className="h-4 w-4 animate-spin" /> Calculando cupos
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {slots.map((slot) => (
-                  <button
-                    className={`rounded-xl border px-3 py-3 text-sm transition ${slotTime === slot.slot_time ? "border-white bg-white text-ink" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
-                    key={slot.slot_time}
-                    type="button"
-                    onClick={() => selectSlot(slot.slot_time)}
-                  >
-                    {formatTime(slot.starts_at)}
-                  </button>
-                ))}
-                {!slots.length ? <p className="col-span-full text-sm text-smoke/60">No hay cupos para esta combinacion.</p> : null}
+        {stage === 2 ? (
+          <FullscreenStep
+            eyebrow="Paso 3"
+            title="Elige fecha y hora"
+            detail={selectedService && selectedBarber ? `${selectedService.name} con ${selectedBarber.display_name}` : "Selecciona servicio y barbero para calcular cupos."}
+          >
+            <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
+              <label className="block space-y-2 text-sm">
+                <span className="text-smoke/70">Fecha de la cita</span>
+                <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-4" min={todayISO()} type="date" value={localDate} onChange={(event) => setLocalDate(event.target.value)} required />
+              </label>
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Horarios disponibles</p>
+                {slotLoading ? (
+                  <p className="inline-flex items-center gap-2 text-sm text-smoke/70">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Calculando cupos
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {slots.map((slot) => (
+                      <button
+                        className={`rounded-xl border px-3 py-4 text-sm transition ${slotTime === slot.slot_time ? "border-white bg-white text-ink" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+                        key={slot.slot_time}
+                        type="button"
+                        onClick={() => selectSlot(slot.slot_time)}
+                      >
+                        {formatTime(slot.starts_at)}
+                      </button>
+                    ))}
+                    {!slots.length ? <p className="col-span-full rounded-xl border border-white/10 bg-white/[0.035] p-4 text-sm text-smoke/60">No hay cupos para esta combinacion.</p> : null}
+                  </div>
+                )}
               </div>
-            )}
-          </Step>
+            </div>
+            <StepActions onBack={() => goTo(1)} />
+          </FullscreenStep>
+        ) : null}
 
-          <Step ref={dataRef} title="4. Tus datos" detail="La cuenta es opcional para reservar.">
-            <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Nombre" value={guestName} onChange={(event) => setGuestName(event.target.value)} required />
-            <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Celular" value={guestPhone} onChange={(event) => setGuestPhone(event.target.value)} required />
-            <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Email opcional" type="email" value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} />
-            <textarea className="min-h-24 w-full rounded-xl border border-white/10 bg-ink px-3 py-3" placeholder="Notas opcionales" value={notes} onChange={(event) => setNotes(event.target.value)} />
-            <label className="flex cursor-pointer gap-3 rounded-xl border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-smoke/70">
+        {stage === 3 ? (
+          <FullscreenStep eyebrow="Paso 4" title="Confirma tus datos" detail="La cuenta es opcional para reservar. El cupo queda bloqueado al confirmar.">
+            <div className="grid gap-3 md:grid-cols-2">
+              <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-4" placeholder="Nombre" value={guestName} onChange={(event) => setGuestName(event.target.value)} required />
+              <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-4" placeholder="Celular" value={guestPhone} onChange={(event) => setGuestPhone(event.target.value)} required />
+              <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-4 md:col-span-2" placeholder="Email opcional" type="email" value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} />
+              <textarea className="min-h-28 w-full rounded-xl border border-white/10 bg-ink px-3 py-4 md:col-span-2" placeholder="Notas opcionales" value={notes} onChange={(event) => setNotes(event.target.value)} />
+            </div>
+            <label className="flex cursor-pointer gap-3 rounded-xl border border-white/10 bg-white/[0.035] p-4 text-sm leading-6 text-smoke/70">
               <input className="mt-1 h-4 w-4 accent-white" checked={acceptPolicy} onChange={(event) => setAcceptPolicy(event.target.checked)} type="checkbox" required />
-              <span>
-                Acepto la politica de reservas: el cupo queda bloqueado al confirmar y la cancelacion debe hacerse con minimo 2 horas de anticipacion.
-              </span>
+              <span>Acepto la politica de reservas: cancelacion minimo 2 horas antes y el espacio se bloquea para otros clientes.</span>
             </label>
-            <button className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60" disabled={!slotTime || !acceptPolicy || submitting} type="submit">
-              <CalendarDays className="h-4 w-4" />
-              {submitting ? "Reservando..." : "Confirmar reserva"}
-            </button>
-          </Step>
-        </aside>
+            <div className="grid gap-2 sm:grid-cols-[180px_1fr]">
+              <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/5 px-5 py-4 font-medium hover:bg-white/10" type="button" onClick={() => goTo(2)}>
+                <ArrowLeft className="h-4 w-4" /> Volver
+              </button>
+              <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-4 font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60" disabled={!slotTime || !acceptPolicy || submitting} type="submit">
+                <CalendarDays className="h-4 w-4" />
+                {submitting ? "Reservando..." : "Confirmar reserva"}
+              </button>
+            </div>
+          </FullscreenStep>
+        ) : null}
       </form>
     </main>
   );
 }
 
-const Step = forwardRef(function Step(
-  { title, detail, children }: { title: string; detail: string; children: ReactNode },
-  ref: ForwardedRef<HTMLElement>,
-) {
+function FullscreenStep({ eyebrow, title, detail, children }: { eyebrow: string; title: string; detail: string; children: ReactNode }) {
   return (
-    <section className="immersive-enter scroll-mt-28 space-y-4" ref={ref}>
+    <section className="immersive-enter grid min-h-[calc(100vh-210px)] content-start gap-6 rounded-[28px] border border-white/10 bg-white/[0.025] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] md:p-7">
       <div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="mt-1 text-sm text-smoke/55">{detail}</p>
+        <p className="text-xs uppercase tracking-[0.32em] text-white/45">{eyebrow}</p>
+        <h2 className="mt-3 text-3xl font-semibold leading-tight md:text-5xl">{title}</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-smoke/65">{detail}</p>
       </div>
-      <div className="space-y-3">{children}</div>
+      <div className="space-y-5">{children}</div>
     </section>
   );
-});
+}
+
+function StepActions({ onBack }: { onBack: () => void }) {
+  return (
+    <button className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-5 py-3 text-sm font-medium hover:bg-white/10" type="button" onClick={onBack}>
+      <ArrowLeft className="h-4 w-4" /> Volver
+    </button>
+  );
+}
 
 function Media({ imageUrl, fallback }: { imageUrl?: string | null; fallback: ReactNode }) {
   return (
-    <div className="grid aspect-[16/9] place-items-center bg-black/35">
-      {imageUrl ? <img className="h-full w-full object-cover" src={imageUrl} alt="" loading="lazy" /> : fallback}
+    <div className="grid aspect-[16/10] place-items-center bg-black/35">
+      {imageUrl ? <img className="h-full w-full object-cover transition duration-500 hover:scale-[1.03]" src={imageUrl} alt="" loading="lazy" /> : fallback}
     </div>
   );
 }
