@@ -239,6 +239,9 @@ Auditoria y mejoras practicas:
 - Se agrego RPC incremental `upsert_my_availability_rule` en `supabase/migrations/019_barber_self_availability.sql`.
 - `/admin` conserva el panel compacto y agrega botones de adjuntar foto para servicios y barberos.
 - Nueva documentacion: `docs/barber-self-service-and-booking-pipeline.md`.
+- Home actualizado a una version sin foto, mas minimalista/luxury, centrada en logo y tipografia.
+- Navegacion global ajustada: header compacto en desktop y barra inferior tipo app en movil.
+- Nueva migracion pendiente: `supabase/migrations/020_barber_cancel_own_appointments.sql` para cancelacion propia de citas por barbero.
 
 Validacion local realizada:
 

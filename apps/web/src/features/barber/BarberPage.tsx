@@ -2,19 +2,23 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } fr
 import { Ban, CalendarDays, Camera, Check, Clock, Plus, Save, Scissors, X } from "lucide-react";
 import { useSessionContext } from "../../app/providers/SessionProvider";
 import {
+  barberCancelAppointment,
   completeAppointment,
   confirmAppointment,
+  getAvailableSlots,
   getMyBarberProfile,
   listAvailabilityRules,
   listAppointments,
   listBarbers,
   markNoShow,
   requestScheduleBlock,
+  rescheduleAppointment,
   updateMyBarberProfile,
   upsertMyAvailabilityRule,
   uploadBarberMedia,
   type AvailabilityRuleRow,
   type AppointmentRow,
+  type Slot,
 } from "../../lib/bookingApi";
 import { formatTime, todayISO } from "../../lib/formatters";
 import { supabase } from "../../lib/supabase";
@@ -42,6 +46,11 @@ export default function BarberPage() {
   const [ruleEndTime, setRuleEndTime] = useState("19:00");
   const [ruleInterval, setRuleInterval] = useState(30);
   const [ruleActive, setRuleActive] = useState(true);
+  const [rescheduleId, setRescheduleId] = useState("");
+  const [rescheduleDate, setRescheduleDate] = useState(todayISO());
+  const [rescheduleSlot, setRescheduleSlot] = useState("");
+  const [rescheduleSlots, setRescheduleSlots] = useState<Slot[]>([]);
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -87,6 +96,28 @@ export default function BarberPage() {
       void supabase.removeChannel(channel);
     };
   }, [load, localDate]);
+
+  useEffect(() => {
+    const appointment = appointments.find((item) => item.id === rescheduleId);
+    if (!appointment || !rescheduleDate) return;
+
+    let mounted = true;
+    setRescheduleLoading(true);
+    setRescheduleSlot("");
+
+    getAvailableSlots(appointment.barber_id, appointment.service_id, rescheduleDate)
+      .then((nextSlots) => {
+        if (mounted) setRescheduleSlots(nextSlots);
+      })
+      .catch((nextError: Error) => setError(nextError.message))
+      .finally(() => {
+        if (mounted) setRescheduleLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [appointments, rescheduleDate, rescheduleId]);
 
   async function run(action: () => Promise<void>) {
     setError(null);
@@ -212,12 +243,27 @@ export default function BarberPage() {
     }
   }
 
+  function startReschedule(appointment: AppointmentRow) {
+    setRescheduleId(appointment.id);
+    setRescheduleDate(appointment.local_date);
+    setRescheduleSlot("");
+    setRescheduleSlots([]);
+  }
+
+  async function handleReschedule() {
+    if (!rescheduleId || !rescheduleSlot) return;
+    await run(() => rescheduleAppointment(rescheduleId, rescheduleDate, rescheduleSlot));
+    setMessage("Cita reprogramada.");
+    setRescheduleId("");
+    setRescheduleSlot("");
+  }
+
   return (
     <main className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-gold">Barbero</p>
-          <h1 className="mt-3 text-4xl font-semibold">Agenda diaria</h1>
+          <h1 className="mt-3 text-3xl font-semibold md:text-4xl">Agenda diaria</h1>
         </div>
         <input className="rounded-xl border border-white/10 bg-ink px-3 py-3" type="date" value={localDate} onChange={(event) => setLocalDate(event.target.value)} />
       </header>
@@ -248,7 +294,42 @@ export default function BarberPage() {
                 <button className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-sm hover:bg-white/10" onClick={() => void run(() => markNoShow(appointment.id))} type="button">
                   <Ban className="h-4 w-4" /> No show
                 </button>
+                <button className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-sm hover:bg-white/10" onClick={() => startReschedule(appointment)} type="button">
+                  <CalendarDays className="h-4 w-4" /> Reprogramar
+                </button>
+                <button className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-sm hover:bg-white/10" onClick={() => void run(() => barberCancelAppointment(appointment.id, "Cancelada por barbero"))} type="button">
+                  <X className="h-4 w-4" /> Cancelar
+                </button>
               </div>
+              {rescheduleId === appointment.id ? (
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4 md:col-span-2">
+                  <div className="grid gap-3 md:grid-cols-[220px_1fr]">
+                    <label className="space-y-2 text-sm text-smoke/65">
+                      <span>Nueva fecha</span>
+                      <input className="w-full rounded-xl border border-white/10 bg-ink px-3 py-3" min={todayISO()} type="date" value={rescheduleDate} onChange={(event) => setRescheduleDate(event.target.value)} />
+                    </label>
+                    <div className="space-y-2">
+                      <p className="text-sm text-smoke/65">Horas disponibles</p>
+                      {rescheduleLoading ? (
+                        <p className="text-sm text-smoke/55">Calculando cupos...</p>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {rescheduleSlots.map((slot) => (
+                            <button className={`rounded-xl border px-3 py-2 text-sm ${rescheduleSlot === slot.slot_time ? "border-white bg-white text-ink" : "border-white/10 bg-white/5 hover:bg-white/10"}`} key={slot.slot_time} type="button" onClick={() => setRescheduleSlot(slot.slot_time)}>
+                              {formatTime(slot.starts_at)}
+                            </button>
+                          ))}
+                          {!rescheduleSlots.length ? <p className="col-span-full text-sm text-smoke/55">No hay cupos para esa fecha.</p> : null}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <button className="rounded-xl bg-white/5 px-4 py-3 text-sm font-medium hover:bg-white/10" type="button" onClick={() => setRescheduleId("")}>Cerrar</button>
+                    <button className="rounded-xl bg-white px-4 py-3 text-sm font-medium text-ink disabled:opacity-50" disabled={!rescheduleSlot} type="button" onClick={() => void handleReschedule()}>Guardar nueva hora</button>
+                  </div>
+                </div>
+              ) : null}
             </article>
           ))}
           {!appointments.length ? <p className="bg-white/[0.03] p-5 text-sm text-smoke/60">No hay citas visibles para esta fecha.</p> : null}

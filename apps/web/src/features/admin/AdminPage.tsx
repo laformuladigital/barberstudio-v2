@@ -322,7 +322,7 @@ export default function AdminPage() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-gold">Admin</p>
-          <h1 className="mt-3 text-4xl font-semibold">Panel operativo</h1>
+          <h1 className="mt-3 text-3xl font-semibold md:text-4xl">Panel operativo</h1>
           <p className="mt-2 text-sm text-smoke/60">Agenda, catalogo, accesos y bloqueos en un solo lugar.</p>
         </div>
         <div className="flex gap-2">
@@ -335,7 +335,7 @@ export default function AdminPage() {
 
       {error ? <p className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">{error}</p> : null}
 
-      <section className="grid gap-3 md:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Metric label="Citas" value={appointments.length.toString()} />
         <Metric label="Ingresos" value={money(revenue)} />
         <Metric label="Servicios" value={`${activeServices}/${services.length}`} />
@@ -895,9 +895,9 @@ function NumberInput({ label, value, min, max, onChange }: { label: string; valu
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 md:p-4">
       <p className="text-xs uppercase tracking-[0.2em] text-smoke/50">{label}</p>
-      <p className="mt-3 text-2xl font-semibold">{value}</p>
+      <p className="mt-2 text-xl font-semibold md:mt-3 md:text-2xl">{value}</p>
     </div>
   );
 }

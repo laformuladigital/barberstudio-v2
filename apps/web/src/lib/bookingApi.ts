@@ -233,6 +233,20 @@ export async function cancelAppointment(id: string, reason?: string) {
   raise(error);
 }
 
+export async function barberCancelAppointment(id: string, reason?: string) {
+  const { error } = await supabase.rpc("barber_cancel_appointment", { p_appointment_id: id, p_reason: reason ?? null });
+  raise(error);
+}
+
+export async function rescheduleAppointment(id: string, localDate: string, slotTime: string) {
+  const { error } = await supabase.rpc("reschedule_appointment", {
+    p_appointment_id: id,
+    p_local_date: localDate,
+    p_slot_time: slotTime,
+  });
+  raise(error);
+}
+
 export async function confirmAppointment(id: string) {
   const { error } = await supabase.rpc("confirm_appointment", { p_appointment_id: id });
   raise(error);

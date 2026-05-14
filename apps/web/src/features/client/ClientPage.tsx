@@ -107,7 +107,7 @@ export default function ClientPage() {
     <main className="space-y-6">
       <header>
         <p className="text-sm uppercase tracking-[0.3em] text-gold">Cliente</p>
-        <h1 className="mt-3 text-4xl font-semibold">Mi cuenta</h1>
+        <h1 className="mt-3 text-3xl font-semibold md:text-4xl">Mi cuenta</h1>
       </header>
 
       {error ? <p className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">{error}</p> : null}

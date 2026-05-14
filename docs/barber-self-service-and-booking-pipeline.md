@@ -18,6 +18,7 @@ Archivos principales:
 Nueva migracion:
 
 - `supabase/migrations/019_barber_self_availability.sql`
+- `supabase/migrations/020_barber_cancel_own_appointments.sql`
 
 La migracion agrega `public.upsert_my_availability_rule(...)`, un RPC `security definer` que:
 
@@ -29,6 +30,8 @@ La migracion agrega `public.upsert_my_availability_rule(...)`, un RPC `security 
 
 No cambia ni borra datos existentes.
 
+La migracion `020` agrega `public.barber_cancel_appointment(...)`, para que el barbero pueda cancelar citas de su propia agenda sin depender del permiso admin. Valida que la cita pertenezca al barbero autenticado y registra auditoria.
+
 ## Seguridad
 - La reserva publica sigue usando `book_appointment` y `get_available_slots`; no hay logica critica solo en frontend.
 - Los horarios propios del barbero se escriben por RPC, no por update libre desde el cliente.
@@ -36,7 +39,7 @@ No cambia ni borra datos existentes.
 - El frontend no usa `service_role`.
 
 ## Despliegue
-Antes de desplegar el frontend que llama `upsert_my_availability_rule`, aplica la migracion `019_barber_self_availability.sql` en Supabase.
+Antes de desplegar el frontend, aplica las migraciones `019_barber_self_availability.sql` y `020_barber_cancel_own_appointments.sql` en Supabase.
 
 Despues:
 
